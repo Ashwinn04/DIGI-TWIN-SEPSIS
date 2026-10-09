@@ -1567,23 +1567,51 @@ def show_model_curves():
     if not any_cal:
         st.info("No calibration curve images found.")
     
-    # Confusion matrices (if available)
-    st.subheader("Confusion Matrices")
-    cm_candidates = [
-        ('GRU-D (Demo)', ['Capstone/outputs/figures/grud_demo_confusion_matrix.png']),
-        ('GRU-D (Real)', ['Capstone/outputs/figures/grud_real_confusion_matrix.png']),
-    ]
+    # Confusion matrices for all 4 DL models (real data only, no demo)
+    st.subheader("Confusion Matrices (Deep Learning Models)")
+    model_to_cm_candidates = {
+        'GRU-D': [
+            'Capstone/outputs/figures/grud_real_confusion_matrix.png',
+            'outputs/figures/grud_real_confusion_matrix.png',
+            'Capstone/outputs/figures/gru_d_confusion_matrix.png',
+            'outputs/figures/gru_d_confusion_matrix.png',
+            'Capstone/outputs/figures/grud_confusion_matrix.png',
+            'outputs/figures/grud_confusion_matrix.png'
+        ],
+        'LSTM': [
+            'Capstone/outputs/figures/lstm_real_confusion_matrix.png',
+            'outputs/figures/lstm_real_confusion_matrix.png',
+            'Capstone/outputs/figures/lstm_confusion_matrix.png',
+            'outputs/figures/lstm_confusion_matrix.png'
+        ],
+        'CNN-LSTM': [
+            'Capstone/outputs/figures/cnn_lstm_real_confusion_matrix.png',
+            'outputs/figures/cnn_lstm_real_confusion_matrix.png',
+            'Capstone/outputs/figures/cnn_lstm_confusion_matrix.png',
+            'outputs/figures/cnn_lstm_confusion_matrix.png',
+            'Capstone/outputs/figures/cnnlstm_confusion_matrix.png',
+            'outputs/figures/cnnlstm_confusion_matrix.png'
+        ],
+        'Transformer': [
+            'Capstone/outputs/figures/transformer_real_confusion_matrix.png',
+            'outputs/figures/transformer_real_confusion_matrix.png',
+            'Capstone/outputs/figures/transformer_confusion_matrix.png',
+            'outputs/figures/transformer_confusion_matrix.png'
+        ]
+    }
     cols_cm = st.columns(2)
     shown = False
-    for idx, (title, candidates) in enumerate(cm_candidates):
+    i = 0
+    for model, candidates in model_to_cm_candidates.items():
         path = _first_existing_path(candidates)
-        with cols_cm[idx % 2]:
+        with cols_cm[i % 2]:
             if path:
                 shown = True
-                st.caption(title)
+                st.caption(model)
                 st.image(path, use_column_width=True)
+        i += 1
     if not shown:
-        st.info("No confusion matrix images found.")
+        st.info("No confusion matrix images found for deep learning models.")
 
 def show_clinical_workflow(patient_data):
     """Display clinical workflow integration"""
