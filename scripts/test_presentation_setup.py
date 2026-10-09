@@ -82,7 +82,7 @@ def test_integration_system():
     """Test that integration system can be imported"""
     print("\n🔍 Testing integration system...")
     try:
-        sys.path.insert(0, os.getcwd())
+        sys.path.insert(0, os.getcwd())  # run from project root
         from integration_real import get_integration_system, check_baseline_models_status
         
         print("  ✅ Integration system imports successfully")

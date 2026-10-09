@@ -208,8 +208,8 @@ def build_pdf(output_path: str):
 
 
 if __name__ == "__main__":
-    root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-    out = os.path.join(root, "outputs", "docs", "Project_Overview.pdf")
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
+    out = os.path.join(root, "docs", "Project_Overview.pdf")
     path = build_pdf(out)
     print(f"PDF written to: {path}")
 

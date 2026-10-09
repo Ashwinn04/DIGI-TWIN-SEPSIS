@@ -161,7 +161,7 @@ def markdown_to_html(md_file, html_file=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 convert_md_to_html.py <markdown_file.md> [output.html]")
+        print("Usage: python3 scripts/docs/convert_md_to_html.py <markdown_file.md> [output.html]")
         sys.exit(1)
     
     md_file = sys.argv[1]

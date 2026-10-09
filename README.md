@@ -64,7 +64,6 @@ Then open your browser to: **http://localhost:8501**
 If you want to train new models:
 ```bash
 # Run training scripts
-python train_grud_demo.py           # Train GRU-D on sample data
 python train_with_real_data.py     # Train on real ICU data
 python evaluate_models.py           # Evaluate model performance
 ```
@@ -92,32 +91,26 @@ jupyter notebook notebooks/
 
 ```
 ├── dashboard_real.py           # Main interactive dashboard (Streamlit)
-├── models/                     # Deep learning model implementations
-│   ├── grud.py                # GRU-D model
-│   ├── lstm.py                 # LSTM model
-│   ├── cnn_lstm.py            # CNN-LSTM hybrid
-│   └── transformer.py         # Transformer architecture
-├── utils/                      # Utility functions
-│   ├── data_loader.py        # Data loading and preprocessing
-│   ├── training.py            # Training utilities
-│   ├── metrics.py            # Evaluation metrics
-│   └── visualization.py       # Plotting functions
-├── explainability_utils/       # Model interpretability
-│   ├── explainability.py     # SHAP, Integrated Gradients
-│   ├── calibration.py        # Probability calibration
-│   └── visualization.py      # Visualization utilities
-├── notebooks/                  # Jupyter notebooks for exploration
-│   ├── 01_data_loading_and_exploration.ipynb
-│   ├── 02_model_grud.ipynb
-│   ├── 03_model_lstm.ipynb
-│   ├── 04_model_cnn_lstm.ipynb
-│   ├── 05_model_transformer.ipynb
-│   ├── 06_model_calibration.ipynb
-│   └── 07_comparative_evaluation.ipynb
+├── models/                     # PyTorch architectures (GRU-D, LSTM, CNN-LSTM, Transformer)
+├── explainability_utils/       # Data loading, training, calibration, metrics, explainability, plots
+├── surveillance/               # Multi-hospital outbreak-detection layer
+├── scripts/                    # Evaluation and doc-conversion helpers (run from project root)
+│   └── docs/                  # Markdown -> HTML/PDF converters
+├── notebooks/                  # Jupyter notebooks
+├── docs/                       # All documentation
+│   ├── presentation/          # Presentation scripts and guides
+│   ├── PROJECT_SUMMARY.md     # Consolidated status reports
+│   └── figures/               # Curves and comparison charts
 ├── outputs/                    # Model artifacts and results
-│   ├── models/               # Trained model weights
+│   ├── models/               # Trained model weights, scalers, imputers
 │   ├── figures/              # Generated visualizations
 │   └── results/              # Evaluation results
+├── integration_real.py         # Core prediction system (loads all models)
+├── dashboard_real.py           # Streamlit dashboard
+├── api_service.py              # FastAPI service
+├── predict_new_data.py         # CLI prediction
+├── train_models.py             # Deep learning training
+├── train_baseline_models.py    # Baseline model training
 ├── Dataset.csv                # ICU patient data
 ├── requirements.txt           # Python dependencies
 └── README.md                 # This file

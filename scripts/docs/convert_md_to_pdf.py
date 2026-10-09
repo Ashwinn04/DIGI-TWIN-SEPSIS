@@ -144,7 +144,7 @@ def markdown_to_pdf(md_file, pdf_file=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 convert_md_to_pdf.py <markdown_file.md> [output.pdf]")
+        print("Usage: python3 scripts/docs/convert_md_to_pdf.py <markdown_file.md> [output.pdf]")
         sys.exit(1)
     
     md_file = sys.argv[1]

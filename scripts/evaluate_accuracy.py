@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # project root
 import os
 import torch
 import numpy as np
