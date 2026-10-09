@@ -17,7 +17,8 @@ def site_daily_reports(p, viral, n_days, k=3, epsilon=1.0, rng=None):
     g = full.merge(g, how="left", on=["site", "region", "day"]).fillna(0)
     g = g.merge(viral, on=["site", "day"], how="left")
     for c in ["admissions", "alerts", "viral_cases"]:
-        g[c] = np.clip(np.rint(g[c] + rng.laplace(0, 1.0 / epsilon, len(g))), 0, None)
+        noise = 0.0 if epsilon is None else rng.laplace(0, 1.0 / epsilon, len(g))   # None = no DP noise
+        g[c] = np.clip(np.rint(g[c] + noise), 0, None)
     g["reported"] = g.admissions >= k
     return g
 

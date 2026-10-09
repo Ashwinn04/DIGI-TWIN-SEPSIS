@@ -18,23 +18,39 @@ from .risk import patient_risk_scores
 from .simulate import build_network, assign_patients, inject_outbreak, viral_counts
 from .aggregate import site_daily_reports, central_region_series
 from .detect import zscore_baseline, ewma_alarm, cusum_alarm, combined_z
+from .viral_real import REGION_MAP, DEFAULT_START_EPIWEEK, daily_series, detect_onsets, load_viral
 
 N_DAYS, BASE_DAYS, DURATION = 140, 60, 21
 
 
-def run_replicate(pt, sites, seed, k, eps, intensity, multiplier):
+def prepare_real_viral(csv_path, start_epiweek=DEFAULT_START_EPIWEEK):
+    """Real viral series settings: file, season start and the onset day detected in each region."""
+    onsets = detect_onsets(daily_series(csv_path, REGION_MAP, N_DAYS, start_epiweek), BASE_DAYS)
+    return {"path": csv_path, "start_epiweek": start_epiweek, "onsets": onsets}
+
+
+def run_replicate(pt, sites, seed, k, eps, intensity, multiplier, real=None):
+    """real=None: simulated viral counts and random outbreak start (original behaviour).
+    real=prepare_real_viral(...): real viral series; outbreak starts where it begins to rise."""
     rng = np.random.default_rng(seed)
     p = assign_patients(pt, sites, N_DAYS, rng)
     region = rng.choice(sorted(sites.region.unique()))
-    start = int(rng.integers(75, 100))
+    start = int(rng.integers(75, 100)) if real is None else real["onsets"][region]
     p, window = inject_outbreak(p, region, start, DURATION, intensity, "flag", rng)
-    viral = viral_counts(p, region, window, N_DAYS, sites, multiplier=multiplier, rng=rng)
+    if real is None:
+        viral = viral_counts(p, region, window, N_DAYS, sites, multiplier=multiplier, rng=rng)
+    else:
+        viral = load_viral(real["path"], REGION_MAP, N_DAYS, sites, rng=rng, base_days=BASE_DAYS,
+                           start_epiweek=real["start_epiweek"])
     reports = site_daily_reports(p, viral, N_DAYS, k=k, epsilon=eps, rng=rng)
     reg = central_region_series(reports)
     return reports, reg, region, window
 
 
-def evaluate(reg, reports, region, window, detector):
+def evaluate(reg, reports, region, window, detector, onsets=None, control=False):
+    """onsets (real viral data): other regions are only scored for false alarms before their own
+    real onset, since their real rise is genuine activity. control=True: no outbreak anywhere,
+    every post-baseline day in every region counts toward false alarms."""
     fn = {"EWMA": ewma_alarm, "CUSUM": cusum_alarm}[detector]
     start, end = window
     out, series = {}, {}
@@ -55,12 +71,13 @@ def evaluate(reg, reports, region, window, detector):
             if z is None:
                 continue
             al = fn(z)
-            if r == region:
+            if r == region and not control:
                 hit = np.where(al[start:end + 14])[0]
                 det_day = int(hit[0]) if len(hit) else None
                 fa += int(al[BASE_DAYS:start].sum()); days += start - BASE_DAYS
             else:
-                fa += int(al[BASE_DAYS:].sum()); days += N_DAYS - BASE_DAYS
+                quiet = N_DAYS if (control or onsets is None) else onsets.get(r) or N_DAYS
+                fa += int(al[BASE_DAYS:quiet].sum()); days += quiet - BASE_DAYS
         out[name] = {"delay": det_day, "false_alarm_days": fa, "monitored_days": days}
     return out, series
 
@@ -109,12 +126,19 @@ def main():
     ap.add_argument("--epsilon", type=float, default=1.0, help="Laplace noise budget per count")
     ap.add_argument("--intensity", type=float, default=0.6, help="share of region's alerts moved into outbreak")
     ap.add_argument("--viral-multiplier", type=float, default=3.0)
+    ap.add_argument("--viral-csv", default=None,
+                    help="real weekly viral series from scripts/fetch_viral.py (default: simulated counts)")
+    ap.add_argument("--viral-start", type=int, default=DEFAULT_START_EPIWEEK,
+                    help="epiweek (YYYYWW) where the 140-day window starts when --viral-csv is given")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
 
     pt, model_metrics = patient_risk_scores(a.data)
     pt["flag"] = pt.max_risk >= pt.max_risk.quantile(0.75)      # fixed 25% alert budget
     sites = build_network()
+    real = prepare_real_viral(a.viral_csv, a.viral_start) if a.viral_csv else None
+    if real:
+        print("Real viral series: detected onset day per region", real["onsets"])
     print("Risk model (out-of-fold):", json.dumps(model_metrics, indent=1))
 
     results = {}
@@ -122,8 +146,8 @@ def main():
         rows, fig_done = [], False
         for s in range(a.replicates):
             reports, reg, region, window = run_replicate(
-                pt, sites, s, a.k, a.epsilon, a.intensity, a.viral_multiplier)
-            ev, series = evaluate(reg, reports, region, window, det)
+                pt, sites, s, a.k, a.epsilon, a.intensity, a.viral_multiplier, real)
+            ev, series = evaluate(reg, reports, region, window, det, real and real["onsets"])
             rows.append(ev)
             if s == 0:
                 figure(series, region, window, det, os.path.join(a.out, f"surveillance_{det.lower()}.png"))
@@ -133,9 +157,13 @@ def main():
            "config": {"days": N_DAYS, "baseline_days": BASE_DAYS, "outbreak_days": DURATION,
                       "sites": len(sites), "regions": sites.region.nunique(),
                       "replicates": a.replicates, "k_min_cell": a.k, "epsilon": a.epsilon,
-                      "outbreak_intensity": a.intensity, "viral_multiplier": a.viral_multiplier},
+                      "outbreak_intensity": a.intensity, "viral_multiplier": a.viral_multiplier,
+                      **({"viral_source": "CDC FluView ILINet (real)", "viral_start_epiweek": a.viral_start,
+                          "detected_onsets": real["onsets"]} if real else {})},
            "detection": results,
-           "disclaimer": "Hospital network, admission dates, viral counts and outbreak are simulated."}
+           "disclaimer": ("Hospital network, admission dates and the sepsis-alert surge are simulated; "
+                          "the viral series is real CDC FluView data." if real else
+                          "Hospital network, admission dates, viral counts and outbreak are simulated.")}
     json.dump(out, open(os.path.join(a.out, "surveillance_results.json"), "w"), indent=2)
     print(json.dumps(results, indent=1))
 
