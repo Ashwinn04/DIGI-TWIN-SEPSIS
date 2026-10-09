@@ -155,3 +155,6 @@ Thumbs.db
 # Local virtual environments
 .venv/
 Capstone/
+
+# Raw public viral data (fetched by scripts/fetch_viral.py)
+data/viral/
