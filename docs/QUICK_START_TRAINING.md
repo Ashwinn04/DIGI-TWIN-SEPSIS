@@ -10,7 +10,7 @@
 ### Option 1: Use Virtual Environment (Recommended)
 ```bash
 # Activate the virtual environment
-source Capstone/venv/bin/activate
+source .venv/bin/activate
 
 # Run training
 python train_baseline_models.py

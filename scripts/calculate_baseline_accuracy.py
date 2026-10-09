@@ -29,7 +29,6 @@ def add_accuracy_to_metrics():
     
     metrics_paths = [
         'outputs/models/baseline_models_metrics.json',
-        'Capstone/outputs/models/baseline_models_metrics.json'
     ]
     
     for metrics_path in metrics_paths:

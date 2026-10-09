@@ -36,7 +36,7 @@ def evaluate_model_accuracy(model, data_loader, device: str = 'cpu') -> float:
 
 def main():
     # Try multiple possible paths for the dataset
-    dataset_paths = ['Dataset.csv', 'Capstone/Dataset.csv']
+    dataset_paths = ['Dataset.csv']
     data_path = None
     for path in dataset_paths:
         if os.path.exists(path):

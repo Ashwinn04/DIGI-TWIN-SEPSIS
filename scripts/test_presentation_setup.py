@@ -64,7 +64,7 @@ def test_files():
             all_exist = False
     
     # Check for data files
-    data_files = ['Dataset.csv', 'Capstone/Dataset.csv', 'fully_cleaned_sepsis_data.csv']
+    data_files = ['Dataset.csv', 'fully_cleaned_sepsis_data.csv']
     data_found = False
     for data_file in data_files:
         if os.path.exists(data_file):
