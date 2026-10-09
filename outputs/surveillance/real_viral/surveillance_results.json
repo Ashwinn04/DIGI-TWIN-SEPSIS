@@ -1,0 +1,78 @@
+{
+  "risk_model": {
+    "row_level_auroc": 0.769533933729624,
+    "row_level_auprc": 0.08324535745022657,
+    "patient_level_auroc": 0.7675725507574789,
+    "patient_level_auprc": 0.3086401741619244,
+    "n_patients": 14057,
+    "patient_sepsis_rate": 0.0881411396457281,
+    "cv": "3-fold patient-grouped, out-of-fold"
+  },
+  "config": {
+    "days": 140,
+    "baseline_days": 60,
+    "outbreak_days": 21,
+    "sites": 12,
+    "regions": 4,
+    "replicates": 30,
+    "k_min_cell": 3,
+    "epsilon": 1.0,
+    "outbreak_intensity": 0.6,
+    "viral_multiplier": 3.0,
+    "viral_source": "CDC FluView ILINet (real)",
+    "viral_start_epiweek": 202436,
+    "detected_onsets": {
+      "North": 81,
+      "South": 68,
+      "East": 79,
+      "West": 63
+    }
+  },
+  "detection": {
+    "EWMA": {
+      "Sepsis-alert rate (pooled)": {
+        "detection_rate": 1.0,
+        "median_delay_days": 4.0,
+        "false_alarms_per_100_region_days": 1.7647058823529411
+      },
+      "Viral cases (pooled)": {
+        "detection_rate": 0.8333333333333334,
+        "median_delay_days": 17.0,
+        "false_alarms_per_100_region_days": 2.287581699346405
+      },
+      "Combined": {
+        "detection_rate": 1.0,
+        "median_delay_days": 4.0,
+        "false_alarms_per_100_region_days": 2.156862745098039
+      },
+      "Single hospital": {
+        "detection_rate": 1.0,
+        "median_delay_days": 8.5,
+        "false_alarms_per_100_region_days": 1.1527377521613833
+      }
+    },
+    "CUSUM": {
+      "Sepsis-alert rate (pooled)": {
+        "detection_rate": 1.0,
+        "median_delay_days": 3.5,
+        "false_alarms_per_100_region_days": 1.3725490196078431
+      },
+      "Viral cases (pooled)": {
+        "detection_rate": 0.8666666666666667,
+        "median_delay_days": 14.5,
+        "false_alarms_per_100_region_days": 2.0915032679738563
+      },
+      "Combined": {
+        "detection_rate": 1.0,
+        "median_delay_days": 3.5,
+        "false_alarms_per_100_region_days": 1.5032679738562091
+      },
+      "Single hospital": {
+        "detection_rate": 1.0,
+        "median_delay_days": 7.0,
+        "false_alarms_per_100_region_days": 0.5763688760806917
+      }
+    }
+  },
+  "disclaimer": "Hospital network, admission dates and the sepsis-alert surge are simulated; the viral series is real CDC FluView data."
+}

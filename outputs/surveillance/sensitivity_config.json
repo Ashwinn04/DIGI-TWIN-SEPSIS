@@ -1,0 +1,60 @@
+{
+  "replicates": 30,
+  "seeds": "0..29",
+  "defaults": {
+    "epsilon": 1.0,
+    "k": 3,
+    "intensity": 0.6,
+    "viral_multiplier": 3.0,
+    "sites_per_region": 3,
+    "budget": 0.25
+  },
+  "grid": {
+    "epsilon": [
+      0.1,
+      0.5,
+      1.0,
+      5.0,
+      "none"
+    ],
+    "k": [
+      1,
+      3,
+      5,
+      10
+    ],
+    "intensity": [
+      0.2,
+      0.4,
+      0.6,
+      0.8
+    ],
+    "viral_multiplier": [
+      1.5,
+      2.0,
+      3.0,
+      5.0
+    ],
+    "sites_per_region": [
+      1,
+      2,
+      3,
+      5
+    ],
+    "budget": [
+      0.1,
+      0.25,
+      0.4
+    ]
+  },
+  "control": "intensity=0, viral_multiplier=1; every post-baseline region-day counts toward false alarms; detection_rate there is the placebo-window (chance) detection rate",
+  "risk_model": {
+    "row_level_auroc": 0.769533933729624,
+    "row_level_auprc": 0.08324535745022657,
+    "patient_level_auroc": 0.7675725507574789,
+    "patient_level_auprc": 0.3086401741619244,
+    "n_patients": 14057,
+    "patient_sepsis_rate": 0.0881411396457281,
+    "cv": "3-fold patient-grouped, out-of-fold"
+  }
+}
