@@ -5,7 +5,7 @@
 Risk scores are computed once and reused. Each parameter is varied on its own while the others stay
 at the defaults below (the run_surveillance defaults). A no-outbreak control gives false alarms
 per 100 region-days. All data are simulated except the out-of-fold risk scores.
-Writes sensitivity.csv, sensitivity_config.json and one sensitivity_<parameter>.png per parameter.
+Writes sensitivity.csv, sensitivity_checks.csv (diagnostics), sensitivity_config.json and one sensitivity_<parameter>.png per parameter.
 """
 import argparse, json, os
 from concurrent.futures import ProcessPoolExecutor
@@ -56,10 +56,21 @@ def run_cell(cfg, replicates, control=False):
     return {d: summarize(rows[d]) for d in DETECTORS}
 
 
+CONTROL = {**DEFAULTS, "intensity": 0.0, "viral_multiplier": 1.0}      # no outbreak anywhere
+
+
 def _tasks():
     tasks = [(p, v, {**DEFAULTS, p: v}, False) for p, vals in GRID.items() for v in vals]
-    control = {**DEFAULTS, "intensity": 0.0, "viral_multiplier": 1.0}
-    return tasks + [("control", "no outbreak", control, True)]
+    return tasks + [("control", "no outbreak", CONTROL, True)]
+
+
+def _check_tasks():
+    """Diagnostics for trends that looked odd: is it the design (patient pool / suppression) or a bug?"""
+    t = [("sites_per_region_no_noise", n, {**DEFAULTS, "epsilon": None, "sites_per_region": n}, False)
+         for n in GRID["sites_per_region"]]
+    t += [("k_no_outbreak", k, {**CONTROL, "k": k}, True) for k in GRID["k"]]            # false alarms only
+    t += [("k_viral_only", k, {**DEFAULTS, "intensity": 0.0, "k": k}, False) for k in GRID["k"]]
+    return t
 
 
 def _run(task, replicates):
@@ -73,7 +84,7 @@ def to_frame(results):
         for d, sig in res.items():
             for name, m in sig.items():
                 rows.append({"parameter": p, "value": "none" if v is None else v, "detector": d,
-                             "signal": name, "detection_rate": None if p == "control" else m["detection_rate"],
+                             "signal": name, "detection_rate": m["detection_rate"],
                              "median_delay_days": m["median_delay_days"],
                              "false_alarms_per_100_region_days": m["false_alarms_per_100_region_days"]})
     return pd.DataFrame(rows)
@@ -109,15 +120,18 @@ def main():
     pt, metrics = patient_risk_scores(a.data)                  # computed once, reused by every cell
     print("Risk model (out-of-fold) patient AUROC:", round(metrics["patient_level_auroc"], 4))
     with ProcessPoolExecutor(a.workers, initializer=_init, initargs=(pt,)) as ex:
-        futs = [ex.submit(_run, t, a.replicates) for t in _tasks()]
+        futs = [ex.submit(_run, t, a.replicates) for t in _tasks() + _check_tasks()]
         results = [f.result() for f in futs]
-    df = to_frame(results)
+    n_main = len(_tasks())
+    df, checks = to_frame(results[:n_main]), to_frame(results[n_main:])
     df.to_csv(os.path.join(a.out, "sensitivity.csv"), index=False)
+    checks.to_csv(os.path.join(a.out, "sensitivity_checks.csv"), index=False)
     for p in GRID:
         figure(df, p, os.path.join(a.out, f"sensitivity_{p}.png"))
     json.dump({"replicates": a.replicates, "seeds": f"0..{a.replicates - 1}", "defaults": DEFAULTS,
                "grid": {k: ["none" if v is None else v for v in vs] for k, vs in GRID.items()},
-               "control": "intensity=0, viral_multiplier=1; every post-baseline region-day counts toward false alarms",
+               "control": "intensity=0, viral_multiplier=1; every post-baseline region-day counts toward false alarms; "
+                          "detection_rate there is the placebo-window (chance) detection rate",
                "risk_model": metrics}, open(os.path.join(a.out, "sensitivity_config.json"), "w"), indent=2)
     print(f"wrote {len(df)} rows to {os.path.join(a.out, 'sensitivity.csv')}")
 

@@ -71,9 +71,10 @@ def evaluate(reg, reports, region, window, detector, onsets=None, control=False)
             if z is None:
                 continue
             al = fn(z)
-            if r == region and not control:
+            if r == region:        # in the control this is a placebo window: detection by chance
                 hit = np.where(al[start:end + 14])[0]
                 det_day = int(hit[0]) if len(hit) else None
+            if r == region and not control:
                 fa += int(al[BASE_DAYS:start].sum()); days += start - BASE_DAYS
             else:
                 quiet = N_DAYS if (control or onsets is None) else onsets.get(r) or N_DAYS
