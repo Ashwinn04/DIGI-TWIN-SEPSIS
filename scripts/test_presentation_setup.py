@@ -5,6 +5,13 @@ Run this before your presentation to ensure everything works
 """
 import sys
 import os
+# torch and xgboost each bundle libomp on macOS: with multiple OpenMP threads, unpickling xgboost after
+# torch segfaults and torch ops after xgboost deadlock. One OpenMP thread avoids both (set before import).
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+try:
+    import xgboost  # noqa: F401
+except ImportError:
+    pass
 
 def test_imports():
     """Test that all required packages are installed"""

@@ -10,6 +10,13 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
+# torch and xgboost each bundle libomp on macOS: with multiple OpenMP threads, unpickling xgboost after
+# torch segfaults and torch ops after xgboost deadlock. One OpenMP thread avoids both (set before import).
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+try:
+    import xgboost  # noqa: F401
+except ImportError:
+    pass
 import torch
 from sklearn.exceptions import NotFittedError
 from sklearn.preprocessing import StandardScaler
