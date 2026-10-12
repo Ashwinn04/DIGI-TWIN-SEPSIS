@@ -15,7 +15,8 @@ pip install -r requirements.txt          # torch is installed separately (CPU wh
 streamlit run dashboard_real.py          # dashboard on :8501
 python api_service.py                    # FastAPI (uvicorn) on :8000
 python predict_new_data.py --json sample_high_risk_patient.json   # also --csv, --interactive, --data "HR=95,Temp=38.2", --output
-python train_baseline_models.py          # baselines -> outputs/models/ (needs fully_cleaned_sepsis_data.csv in root)
+python train_baseline_models.py          # baselines -> outputs/models/ (uses fully_cleaned_sepsis_data.csv if present, else Dataset.csv)
+TRAIN_ONLY=rf REUSE_PREPROCESSORS=1 python train_baseline_models.py   # retrain one model on the deployed imputer/scaler/selector, merge its metrics
 python train_models.py --data_path Dataset.csv --models lstm --epochs 60 --num_seeds 3   # DL models (writes outputs/models/<model>_seed<N>.pt: back up deployed checkpoints first)
 python -m surveillance.run_surveillance --data Dataset.csv --out outputs/surveillance
 python scripts/test_presentation_setup.py
@@ -23,7 +24,7 @@ python scripts/test_presentation_setup.py
 
 Docker: multi-stage `Dockerfile` with targets `production` (API), `dashboard`, `complete`, `development`; `docker-compose.yml` wires them.
 
-Datasets (`*.csv`) and `*.pkl` are gitignored, so training data is not in the repo. `Capstone/` is a local virtualenv.
+Datasets (`*.csv`) and `*.pkl` are gitignored, so training data and the baseline pickles (LR, RF, XGBoost, imputer, scaler, selector) are local-only: a fresh clone has none of them and must retrain or copy them across. `Capstone/` is a local virtualenv.
 
 ## Architecture
 
@@ -40,6 +41,7 @@ Datasets (`*.csv`) and `*.pkl` are gitignored, so training data is not in the re
 - **Checkpoint/architecture coupling.** The `*_seed4x.pt` checkpoints were trained with the model classes from commit `5f81942` (kept in `models/`): GRU-D hidden 128, LSTM hidden 128, CNN-LSTM `cnn_filters=[64, 128]`, Transformer d_model 128. `integration_real.py` must build exactly these or the weights load only partially. It loads with `strict=False`, so it now prints a warning when fewer tensors load than the model has; treat that warning as a bug. (History: commit `f03446f` swapped in different GRU-D/LSTM/CNN-LSTM classes, which left those three models on mostly random weights until restored.)
 - `forward(features, masks, delta_t=None)`: `delta_t` is optional and defaults to regular hourly steps (0 for the first step, 1 after), so 2-argument callers work. The training loader supplies real time differences.
 - **Library pins matter.** The pickles in `outputs/` were created with scikit-learn 1.7.2 (other versions silently break the imputer and the HGB model) and xgboost 2.x (3.x segfaults on `xgboost.pkl`). `requirements.txt` pins both. `integration_real.py` sets `OMP_NUM_THREADS=1` before importing xgboost/torch to avoid a macOS libomp crash/deadlock; keep that before any torch import.
+- The deployed baselines use 23 features (Dataset.csv minus 5 pre-engineered columns), defined by `baseline_imputer.pkl`'s `feature_names_in_`. Without `REUSE_PREPROCESSORS=1`, `train_baseline_models.py` re-fits and overwrites the imputer/scaler/selector, which would invalidate the deployed LR/XGBoost. The RF search grid is bounded (depth<=20, leaf>=2) because an unbounded search produced a 1.3 GB pickle.
 - Baseline scores are calibrated row-level probabilities (low base rate, e.g. LR tops out at 0.25), while the deep-learning models were trained with class weighting and score higher. Do not compare the two scales directly.
 - `train_models.py` writes to the same `outputs/models/` paths the dashboard loads from, and `outputs/cache/patient_splits_seed42.json` fixes the patient split.
 - Model input size and sequence length must match the checkpoint and `outputs/config.json` (44 features, 24 steps). Retraining with different features means regenerating the imputer, scaler and feature list.

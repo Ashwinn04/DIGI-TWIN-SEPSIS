@@ -308,32 +308,46 @@ def train_baseline_models(X_train, X_test, y_train, y_test, output_dir='outputs/
     print("Preprocessing")
     print("="*60)
     
-    imputer = SimpleImputer(strategy='median')
-    X_train_imp = imputer.fit_transform(X_train)
-    X_test_imp = imputer.transform(X_test)
-    
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_imp)
-    X_test_scaled = scaler.transform(X_test_imp)
-
-    # Feature selection (SelectKBest with mutual information)
+    # REUSE_PREPROCESSORS=1: apply the already-deployed imputer/scaler/selector (never re-fit or overwrite
+    # them), so a single model can be (re)trained without invalidating the other deployed models.
+    reuse = os.getenv('REUSE_PREPROCESSORS', '').strip().lower() in ('1', 'true', 'yes')
     fs_path = os.path.join(output_dir, 'feature_selector.pkl')
-    if FEATURE_SELECTION_AVAILABLE:
-        try:
-            k = min(40, X_train_scaled.shape[1])
-            fs = SelectKBest(score_func=mutual_info_classif, k=k)
-            X_train_fs = fs.fit_transform(X_train_scaled, y_train)
-            X_test_fs = fs.transform(X_test_scaled)
-            with open(fs_path, 'wb') as f:
-                pickle.dump(fs, f)
-            print(f"✅ Saved feature selector (k={k}) to {fs_path}")
-        except Exception as e:
-            print(f"⚠️ Feature selection failed ({e}), proceeding without it")
+    if reuse:
+        with open(os.path.join(output_dir, 'baseline_imputer.pkl'), 'rb') as f:
+            imputer = pickle.load(f)
+        with open(os.path.join(output_dir, 'scaler.pkl'), 'rb') as f:
+            scaler = pickle.load(f)
+        with open(fs_path, 'rb') as f:
+            fs = pickle.load(f)
+        X_train_fs = fs.transform(scaler.transform(imputer.transform(X_train)))
+        X_test_fs = fs.transform(scaler.transform(imputer.transform(X_test)))
+        print(f"✅ Reusing deployed preprocessors from {output_dir} ({X_train_fs.shape[1]} features)")
+    else:
+        imputer = SimpleImputer(strategy='median')
+        X_train_imp = imputer.fit_transform(X_train)
+        X_test_imp = imputer.transform(X_test)
+
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_imp)
+        X_test_scaled = scaler.transform(X_test_imp)
+
+        # Feature selection (SelectKBest with mutual information)
+        if FEATURE_SELECTION_AVAILABLE:
+            try:
+                k = min(40, X_train_scaled.shape[1])
+                fs = SelectKBest(score_func=mutual_info_classif, k=k)
+                X_train_fs = fs.fit_transform(X_train_scaled, y_train)
+                X_test_fs = fs.transform(X_test_scaled)
+                with open(fs_path, 'wb') as f:
+                    pickle.dump(fs, f)
+                print(f"✅ Saved feature selector (k={k}) to {fs_path}")
+            except Exception as e:
+                print(f"⚠️ Feature selection failed ({e}), proceeding without it")
+                X_train_fs, X_test_fs = X_train_scaled, X_test_scaled
+                fs = None
+        else:
             X_train_fs, X_test_fs = X_train_scaled, X_test_scaled
             fs = None
-    else:
-        X_train_fs, X_test_fs = X_train_scaled, X_test_scaled
-        fs = None
 
     # Create validation split from training (patient-level already applied upstream if available)
     print("\n" + "="*60)
@@ -362,17 +376,18 @@ def train_baseline_models(X_train, X_test, y_train, y_test, output_dir='outputs/
             print("⚠️ imblearn not available; skipping SMOTE")
             X_tr_bal, y_tr_bal = X_tr_sub, y_tr_sub
 
-    # Save preprocessing components
-    imputer_path = os.path.join(output_dir, 'baseline_imputer.pkl')
-    scaler_path = os.path.join(output_dir, 'scaler.pkl')
+    # Save preprocessing components (left untouched when reusing the deployed ones)
+    if not reuse:
+        imputer_path = os.path.join(output_dir, 'baseline_imputer.pkl')
+        scaler_path = os.path.join(output_dir, 'scaler.pkl')
 
-    with open(imputer_path, 'wb') as f:
-        pickle.dump(imputer, f)
-    print(f"✅ Saved imputer to {imputer_path}")
+        with open(imputer_path, 'wb') as f:
+            pickle.dump(imputer, f)
+        print(f"✅ Saved imputer to {imputer_path}")
 
-    with open(scaler_path, 'wb') as f:
-        pickle.dump(scaler, f)
-    print(f"✅ Saved scaler to {scaler_path}")
+        with open(scaler_path, 'wb') as f:
+            pickle.dump(scaler, f)
+        print(f"✅ Saved scaler to {scaler_path}")
 
     # 1/3. Logistic Regression (with light hyperparameter tuning)
     if train_lr:
@@ -477,11 +492,13 @@ def train_baseline_models(X_train, X_test, y_train, y_test, output_dir='outputs/
             verbose=1
         )
         try:
+            # Bounded depth and leaf size keep the pickle small enough to ship and load quickly
+            # (unbounded depth with single-sample leaves produced a 1.3 GB model).
             rf_param_dist = {
                 'n_estimators': [200, 300, 500],
-                'max_depth': [10, 15, 20, None],
+                'max_depth': [10, 15, 20],
                 'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4]
+                'min_samples_leaf': [2, 4, 8]
             }
             rf_search = RandomizedSearchCV(
                 rf_base,
@@ -763,6 +780,16 @@ def main():
     
     # Prepare features
     feature_cols = prepare_features(df)
+    if os.getenv('REUSE_PREPROCESSORS', '').strip().lower() in ('1', 'true', 'yes'):
+        # the deployed imputer defines the feature set and order the other models were trained on
+        with open(os.path.join('outputs', 'models', 'baseline_imputer.pkl'), 'rb') as f:
+            deployed = list(pickle.load(f).feature_names_in_)
+        missing = [c for c in deployed if c not in df.columns]
+        if missing:
+            print(f"❌ Dataset lacks features the deployed preprocessors expect: {missing}")
+            return
+        feature_cols = deployed
+        print(f"✅ Using the {len(feature_cols)} features of the deployed preprocessors")
     X = df[feature_cols].copy()
     y = df[target_col].astype(int)
     
@@ -801,6 +828,12 @@ def main():
     
     # Save results
     results_path = os.path.join('outputs', 'models', 'baseline_models_metrics.json')
+    if os.path.exists(results_path) and os.getenv('TRAIN_ONLY', '').strip():
+        # partial retrain: keep the other models' metrics
+        with open(results_path) as f:
+            merged = json.load(f)
+        merged.update(results)
+        results = merged
     with open(results_path, 'w') as f:
         json.dump(results, f, indent=2)
     print(f"\n✅ Saved results to {results_path}")
