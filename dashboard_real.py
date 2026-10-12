@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 from pathlib import Path
 project_root = str(Path(__file__).resolve().parent)
 sys.path.append(project_root)
-from integration_real import get_integration_system
+from integration_real import get_integration_system, DEFAULT_MODEL_SET
 
 # Page configuration
 st.set_page_config(
@@ -1055,9 +1055,35 @@ def _load_baseline_metrics():
     
     return None
 
+def _show_final_results(path):
+    """Metrics of the models actually being served (scripts/final_evaluation.py), with 95% CIs."""
+    r = pd.read_csv(path)
+    h = r[(r.horizon == 6) & (r.seed.astype(str).isin(["ensemble"]) | r.model.isin(
+        ["time_only", "logistic_regression", "decision_tree", "knn"]))].copy()
+    h = h.sort_values("auroc", ascending=False)
+    t = pd.DataFrame({
+        "Model": h.model.str.replace("_", " ").str.title(),
+        "AUROC [95% CI]": [f"{a:.3f} [{lo:.3f}, {hi:.3f}]" for a, lo, hi in zip(h.auroc, h.auroc_ci_low, h.auroc_ci_high)],
+        "AUPRC [95% CI]": [f"{a:.3f} [{lo:.3f}, {hi:.3f}]" for a, lo, hi in zip(h.auprc, h.auprc_ci_low, h.auprc_ci_high)],
+        "Sensitivity @ 80% spec.": h.sens_at_80_spec.round(3),
+        "Brier": h.brier.round(4)})
+    st.subheader("Held-out test set, 6-hour horizon (leakage-safe protocol)")
+    st.dataframe(t, hide_index=True, width='stretch')
+    n, pos = int(h.n_test.iloc[0]), int(h.n_test_pos.iloc[0])
+    st.caption(f"{int(h.n_test_patients.iloc[0]):,} test patients, {n:,} pre-onset hours, {pos:,} positive "
+               f"({pos / n * 100:.2f}%). Label = labelled onset within the next 6 h; post-onset hours are dropped. "
+               "'Time Only' predicts from hour-in-ICU alone and is the reference every model should beat. "
+               "Confidence intervals overlap across the top models: they are statistically comparable. "
+               "Source: outputs/results/final_results.csv")
+
+
 def show_performance_metrics():
     """Display model performance metrics"""
     st.header("📊 Model Performance Metrics")
+    _final = os.path.join(project_root, 'outputs', 'results', 'final_results.csv')
+    if str(os.getenv('SEPSIS_MODEL_SET', DEFAULT_MODEL_SET)).lower() == 'protocol' and os.path.exists(_final):
+        _show_final_results(_final)
+        return
     
     # Load baseline model metrics
     df_baseline = _load_baseline_metrics()

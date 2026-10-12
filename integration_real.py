@@ -26,11 +26,12 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
-# Which trained models the system serves. "legacy" = the checkpoints committed before the final evaluation
-# (24-step window, old label definition); "protocol" = the models evaluated in outputs/results/final_results.csv,
-# loaded from outputs/deployed/protocol_H6 (build with scripts/export_deployment.py). Override with the
-# SEPSIS_MODEL_SET environment variable.
-DEFAULT_MODEL_SET = "legacy"
+# Which trained models the system serves. "protocol" (default) = the models evaluated in
+# outputs/results/final_results.csv, loaded from outputs/deployed/protocol_H6 (build with
+# scripts/export_deployment.py; falls back to legacy if the bundle is missing). "legacy" = the checkpoints
+# committed before the final evaluation (24-step window, old label definition, batch-dependent GRU-D).
+# Override with the SEPSIS_MODEL_SET environment variable.
+DEFAULT_MODEL_SET = "protocol"
 
 
 def _warn_if_partial_load(label: str, model_state: dict, compatible: dict) -> None:
