@@ -26,6 +26,14 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+def _warn_if_partial_load(label: str, model_state: dict, compatible: dict) -> None:
+    """A checkpoint that only partly fits the model leaves the rest randomly initialised."""
+    if len(compatible) < len(model_state):
+        missing = sorted(set(model_state) - set(compatible))
+        print(f"  ⚠️ {label}: only {len(compatible)}/{len(model_state)} tensors loaded from checkpoint "
+              f"(random init for e.g. {missing[:3]}); predictions from this model are unreliable")
+
+
 class TorchModelEnsemble:
     """Utility wrapper for averaging predictions across multiple PyTorch checkpoints."""
 
@@ -459,12 +467,12 @@ class SepsisPredictionIntegration:
                 },
                 'lstm': {
                     'class': LSTM,
-                    'init_args': {'hidden_size': 64, 'num_layers': 2, 'dropout': 0.3}
+                    'init_args': {'hidden_size': 128, 'num_layers': 2, 'dropout': 0.3}
                 },
                 'cnn_lstm': {
                     'class': CNNLSTM,
                     'init_args': {'hidden_size': 128, 'num_layers': 1, 'dropout': 0.3,
-                                  'cnn_filters': 128, 'kernel_size': 3}
+                                  'cnn_filters': [64, 128], 'kernel_size': 3}
                 },
                 'transformer': {
                     'class': Transformer,
@@ -507,6 +515,7 @@ class SepsisPredictionIntegration:
                                                   if k in model_state and hasattr(model_state[k], 'shape') and hasattr(v, 'shape')
                                                   and model_state[k].shape == v.shape}
                                     model.load_state_dict(compatible, strict=False)
+                                    _warn_if_partial_load(f'{name}', model_state, compatible)
                                 except Exception as load_exc:
                                     print(f"  ⚠️ Safe state_dict load failed for {name}_seed{seed}: {load_exc}")
                                     continue
@@ -555,6 +564,7 @@ class SepsisPredictionIntegration:
                                                           if k in model_state and hasattr(model_state[k], 'shape') and hasattr(v, 'shape')
                                                           and model_state[k].shape == v.shape}
                                             model.load_state_dict(compatible, strict=False)
+                                            _warn_if_partial_load(f'{name}', model_state, compatible)
                                         except Exception as load_exc:
                                             print(f"  ⚠️ Safe state_dict load failed from {os.path.basename(fallback_path)}: {load_exc}")
                                             continue
