@@ -1,0 +1,13 @@
+check,horizon,auroc,note
+xgboost_shuffled_labels_plain,6,0.4010827551028195,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_plain,6,0.41107311678622604,"null model; compare with the time_only row, not with 0.5"
+xgboost_shuffled_labels_within_6h_bins,6,0.6853356344178297,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_within_6h_bins,6,0.6862967292531127,"null model; compare with the time_only row, not with 0.5"
+xgboost_shuffled_labels_plain,3,0.40030755535677637,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_plain,3,0.37972910738083704,"null model; compare with the time_only row, not with 0.5"
+xgboost_shuffled_labels_within_6h_bins,3,0.6636689414393557,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_within_6h_bins,3,0.6761309973147116,"null model; compare with the time_only row, not with 0.5"
+xgboost_shuffled_labels_plain,12,0.43921958151076346,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_plain,12,0.3706783352922607,"null model; compare with the time_only row, not with 0.5"
+xgboost_shuffled_labels_within_6h_bins,12,0.709649847615101,"null model; compare with the time_only row, not with 0.5"
+logistic_regression_shuffled_labels_within_6h_bins,12,0.7071862277946216,"null model; compare with the time_only row, not with 0.5"

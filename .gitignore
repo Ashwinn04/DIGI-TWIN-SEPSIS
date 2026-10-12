@@ -158,3 +158,6 @@ Capstone/
 
 # Raw public viral data (fetched by scripts/fetch_viral.py)
 data/viral/
+
+# Final-evaluation run artefacts (predictions, checkpoints)
+outputs/final_run/

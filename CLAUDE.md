@@ -18,6 +18,7 @@ python predict_new_data.py --json sample_high_risk_patient.json   # also --csv, 
 python train_baseline_models.py          # baselines -> outputs/models/ (uses fully_cleaned_sepsis_data.csv if present, else Dataset.csv)
 TRAIN_ONLY=rf REUSE_PREPROCESSORS=1 python train_baseline_models.py   # retrain one model on the deployed imputer/scaler/selector, merge its metrics
 python train_models.py --data_path Dataset.csv --models lstm --epochs 60 --num_seeds 3   # DL models (writes outputs/models/<model>_seed<N>.pt: back up deployed checkpoints first)
+python scripts/final_evaluation.py       # THE reported results: all models, one protocol -> outputs/results/final_results.csv (~45 min, cached in outputs/final_run/)
 python -m surveillance.run_surveillance --data Dataset.csv --out outputs/surveillance
 python scripts/test_presentation_setup.py
 ```
@@ -37,6 +38,8 @@ Datasets (`*.csv`) and `*.pkl` are gitignored, so training data and the baseline
 - **`outputs/`** — checkpoints, scalers/imputers, `thresholds.json`, `config.json`, `feature_list.json`, metrics and results CSVs consumed at runtime. Several `.pt` checkpoints are committed to git. `*_demo_model.pt` are placeholder checkpoints, not trained models (only `scripts/evaluate_accuracy.py` reads them).
 
 ## Gotchas
+
+- **Reported results come from `scripts/final_evaluation.py` only** (`outputs/results/final_results.csv`). Patient split from `outputs/cache/patient_splits_seed42.json`; label = labelled onset within the next H hours, with post-onset hours dropped (89.5% of positive rows in `Dataset.csv` are post-onset continuations and the label never reverts, so a persisted label otherwise inflates AUROC to ~0.95); preprocessing, calibration and threshold fitted on train/validation only. It does not write to `outputs/models/`. Report the `time_only` row alongside the models: hour-in-ICU alone reaches AUROC 0.67 because positives sit late in a stay. `outputs/results/model_comparison.csv`, `test_set_model_comparison.csv` and `evaluation_summary.md` are older, different-protocol numbers that the dashboard still reads.
 
 - **Checkpoint/architecture coupling.** The `*_seed4x.pt` checkpoints were trained with the model classes from commit `5f81942` (kept in `models/`): GRU-D hidden 128, LSTM hidden 128, CNN-LSTM `cnn_filters=[64, 128]`, Transformer d_model 128. `integration_real.py` must build exactly these or the weights load only partially. It loads with `strict=False`, so it now prints a warning when fewer tensors load than the model has; treat that warning as a bug. (History: commit `f03446f` swapped in different GRU-D/LSTM/CNN-LSTM classes, which left those three models on mostly random weights until restored.)
 - `forward(features, masks, delta_t=None)`: `delta_t` is optional and defaults to regular hourly steps (0 for the first step, 1 after), so 2-argument callers work. The training loader supplies real time differences.
