@@ -26,6 +26,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 
+# Which trained models the system serves. "legacy" = the checkpoints committed before the final evaluation
+# (24-step window, old label definition); "protocol" = the models evaluated in outputs/results/final_results.csv,
+# loaded from outputs/deployed/protocol_H6 (build with scripts/export_deployment.py). Override with the
+# SEPSIS_MODEL_SET environment variable.
+DEFAULT_MODEL_SET = "legacy"
+
+
 def _warn_if_partial_load(label: str, model_state: dict, compatible: dict) -> None:
     """A checkpoint that only partly fits the model leaves the rest randomly initialised."""
     if len(compatible) < len(model_state):
@@ -164,6 +171,8 @@ class SepsisPredictionIntegration:
         self.disable_deep_learning_models = str(os.getenv('DISABLE_DL', '0')).lower() in ('1', 'true', 'yes')
         # Per-model thresholds loaded from training metrics (fallback to defaults if missing)
         self.baseline_thresholds: Dict[str, float] = {}
+        self.model_set = str(os.getenv('SEPSIS_MODEL_SET', DEFAULT_MODEL_SET)).strip().lower()
+        self.protocol_bundle = None
 
         # Initialize the system
         self._initialize_system()
@@ -178,6 +187,14 @@ class SepsisPredictionIntegration:
 
             # Load default feature values from available datasets
             self._load_feature_defaults()
+
+            if self.model_set == 'protocol' and self._load_protocol_bundle():
+                self.is_initialized = True
+                print("✅ Integration system initialized successfully (protocol models)!")
+                return
+            if self.model_set == 'protocol':
+                print("⚠️ Protocol bundle unavailable; falling back to the legacy checkpoints.")
+                self.model_set = 'legacy'
 
             # Load Person B's baseline models
             self._load_baseline_models()
@@ -206,6 +223,23 @@ class SepsisPredictionIntegration:
         except Exception as e:
             print(f"❌ Error initializing system: {e}")
             self.is_initialized = False
+
+    def _load_protocol_bundle(self) -> bool:
+        """Serve the models from the final evaluation (see explainability_utils/deploy.py)."""
+        try:
+            from explainability_utils.deploy import ProtocolBundle
+            b = ProtocolBundle(os.getenv('SEPSIS_BUNDLE', '') or None) if os.getenv('SEPSIS_BUNDLE') else ProtocolBundle()
+        except Exception as exc:
+            print(f"⚠️ Could not load protocol bundle: {exc}")
+            return False
+        self.protocol_bundle = b
+        self.feature_names = list(b.features)
+        self.deep_learning_models = {n: b for n in b.nets}
+        self.baseline_models = {n: m for n, m in b.sk.items()}
+        h = b.cal.get('horizon', '?')
+        print(f"📦 Model set: protocol (H={h}h): {len(b.nets)} deep models x seeds, "
+              f"{len(b.sk)} baselines; levels use validation operating points (80%/95% specificity)")
+        return True
 
     def _determine_feature_names(self):
         """Determine feature names from available datasets."""
@@ -1005,6 +1039,13 @@ class SepsisPredictionIntegration:
     def predict_baseline_models(self, patient_data):
         """Get predictions from Person B's baseline models"""
         predictions = {}
+        if self.model_set == 'protocol' and self.protocol_bundle is not None:
+            if getattr(self, 'disable_baseline_models', False):
+                return predictions
+            predictions = self.protocol_bundle.predict_baselines(patient_data)
+            record = patient_data.iloc[-1].to_dict() if isinstance(patient_data, pd.DataFrame) else patient_data
+            predictions['clinical_scores'] = self._calculate_clinical_scores(record)
+            return predictions
         if getattr(self, 'disable_baseline_models', False):
             print("BASELINE DEBUG: Baselines disabled, skipping predictions.")
             # Baseline models are temporarily disabled
@@ -1418,6 +1459,10 @@ class SepsisPredictionIntegration:
     def predict_deep_learning_models(self, patient_data):
         """Get predictions from Person C's deep learning models"""
         predictions = {}
+        if self.model_set == 'protocol' and self.protocol_bundle is not None:
+            if getattr(self, 'disable_deep_learning_models', False):
+                return predictions
+            return self.protocol_bundle.predict_deep(patient_data)
         if getattr(self, 'disable_deep_learning_models', False):
             print("DL DEBUG: Deep learning models disabled, skipping predictions.")
             return predictions
@@ -1522,6 +1567,9 @@ class SepsisPredictionIntegration:
         """Get comprehensive prediction combining all models"""
         if not self.is_initialized:
             return None
+
+        if self.model_set == 'protocol' and self.protocol_bundle is not None:
+            return self._comprehensive_protocol(patient_data)
         
         try:
             # Get baseline predictions
@@ -1656,6 +1704,35 @@ class SepsisPredictionIntegration:
             traceback.print_exc()
             return None
     
+    def _comprehensive_protocol(self, patient_data):
+        """Same output shape as the legacy path, but calibrated scores and validation operating points.
+        The clinical score is reported, not fused into the number (it lives on a different scale)."""
+        b = self.protocol_bundle
+        baseline_preds = self.predict_baseline_models(patient_data)
+        dl_preds = self.predict_deep_learning_models(patient_data)
+        raw = {n: p['raw_score'] for n, p in dl_preds.items()}
+        ens = b.predict_ensemble(patient_data, raw=raw if raw else None)
+        scores = baseline_preds.get('clinical_scores', {})
+        clinical_risk = (min(1.0, scores.get('sirs', 0) / 4.0) * 0.3 + min(1.0, scores.get('qsofa', 0) / 3.0) * 0.4
+                         + min(1.0, scores.get('sofa', 0) / 24.0) * 0.3)
+        spec = b.cal['ensemble_dl']
+        member = [p['risk_score'] for p in dl_preds.values()]
+        return {
+            'individual_predictions': {**baseline_preds, **dl_preds},
+            'ensemble_prediction': {
+                'average_risk_score': ens['risk_score'],
+                'risk_level': ens['risk_level'],
+                'agreement_score': float(np.clip(1.0 - ens['spread'] / max(ens['risk_score'], 1e-3), 0.0, 1.0)),
+                'model_average': float(np.mean(member)) if member else ens['risk_score'],
+                'clinical_risk': float(clinical_risk),
+                'recommended_action': self._get_recommendation(ens['risk_level']),
+                'calibrated': True,
+                'operating_points': {'medium_threshold': spec['threshold_medium'], 'high_threshold': spec['threshold_high'],
+                                     'horizon_h': b.cal.get('horizon')},
+            },
+            'timestamp': datetime.now().isoformat(),
+        }
+
     def _get_recommendation(self, risk_level):
         """Get clinical recommendation based on risk level"""
         if risk_level == 'High':

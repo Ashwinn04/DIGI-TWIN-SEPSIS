@@ -57,7 +57,9 @@ class GRUD(nn.Module):
         h = torch.zeros(batch_size, self.hidden_size, device=x.device)
         
         # Store mean of features for imputation (can be precomputed)
-        x_mean = torch.mean(x, dim=[0, 1]) 
+        # Inputs are standardised, so the empirical feature mean is 0. (It was computed over the batch,
+        # which made a sample's output depend on its batch mates and on zero-padded steps.)
+        x_mean = torch.zeros(x.shape[-1], device=x.device, dtype=x.dtype)
         
         for t in range(seq_len):
             x_t = x[:, t, :]       # current input [B, F]

@@ -238,14 +238,21 @@ def format_risk_output(prediction_result: Dict[str, Any], patient_id: str = "Unk
     # Thresholds and Flags
     output.append("⚙️  RISK THRESHOLDS")
     output.append("-"*70)
-    output.append(f"  High Risk Threshold:   ≥ 0.70 (70%)")
-    output.append(f"  Medium Risk Threshold: ≥ 0.30 (30%)")
-    output.append(f"  Low Risk Threshold:    < 0.30 (30%)")
+    op = ensemble.get('operating_points')
+    if op:
+        output.append(f"  High Risk:   calibrated score ≥ {op['high_threshold']:.3f}  (validation specificity 95%)")
+        output.append(f"  Medium Risk: calibrated score ≥ {op['medium_threshold']:.3f}  (validation specificity 80%)")
+        output.append(f"  Low Risk:    below {op['medium_threshold']:.3f}")
+        output.append(f"  Scores are calibrated probabilities of onset within {op.get('horizon_h', 6)} h (base rate about 1%).")
+    else:
+        output.append(f"  High Risk Threshold:   ≥ 0.70 (70%)")
+        output.append(f"  Medium Risk Threshold: ≥ 0.30 (30%)")
+        output.append(f"  Low Risk Threshold:    < 0.30 (30%)")
     output.append("")
     
-    if risk_score >= 0.70:
+    if risk_level == 'High':
         output.append("🚨 FLAG: HIGH RISK - Immediate clinical attention required!")
-    elif risk_score >= 0.30:
+    elif risk_level == 'Medium':
         output.append("⚠️  FLAG: MEDIUM RISK - Close monitoring recommended")
     else:
         output.append("✅ FLAG: LOW RISK - Continue routine monitoring")

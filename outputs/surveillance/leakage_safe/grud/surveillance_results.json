@@ -2,10 +2,10 @@
   "risk_model": {
     "risk_source": "grud",
     "horizon_h": 6,
-    "row_level_auroc": 0.7740718993302822,
-    "row_level_auprc": 0.05449661312757681,
-    "patient_level_auroc": 0.7361301272399663,
-    "patient_level_auprc": 0.40539936579210645,
+    "row_level_auroc": 0.7761181386618362,
+    "row_level_auprc": 0.054639643247058604,
+    "patient_level_auroc": 0.7425055410679005,
+    "patient_level_auprc": 0.40587172533167315,
     "n_patients": 13920,
     "n_excluded_no_pre_onset_hours": 137,
     "patient_sepsis_rate": 0.07916666666666666,
@@ -29,44 +29,44 @@
       "Sepsis-alert rate (pooled)": {
         "detection_rate": 1.0,
         "median_delay_days": 4.0,
-        "false_alarms_per_100_region_days": 0.6363069245165315
+        "false_alarms_per_100_region_days": 0.7735495945102931
       },
       "Viral cases (pooled)": {
         "detection_rate": 0.9666666666666667,
-        "median_delay_days": 15.0,
-        "false_alarms_per_100_region_days": 1.0106051154086089
+        "median_delay_days": 12.0,
+        "false_alarms_per_100_region_days": 0.8858390517779164
       },
       "Combined": {
         "detection_rate": 1.0,
-        "median_delay_days": 6.0,
-        "false_alarms_per_100_region_days": 0.39925140361821587
+        "median_delay_days": 5.0,
+        "false_alarms_per_100_region_days": 0.611353711790393
       },
       "Single hospital": {
-        "detection_rate": 0.9,
-        "median_delay_days": 8.0,
-        "false_alarms_per_100_region_days": 2.085889570552147
+        "detection_rate": 0.9666666666666667,
+        "median_delay_days": 7.0,
+        "false_alarms_per_100_region_days": 2.331288343558282
       }
     },
     "CUSUM": {
       "Sepsis-alert rate (pooled)": {
         "detection_rate": 1.0,
         "median_delay_days": 4.0,
-        "false_alarms_per_100_region_days": 0.6487835308796007
+        "false_alarms_per_100_region_days": 0.6862133499688085
       },
       "Viral cases (pooled)": {
         "detection_rate": 1.0,
         "median_delay_days": 12.0,
-        "false_alarms_per_100_region_days": 0.9981285090455396
+        "false_alarms_per_100_region_days": 0.8234560199625702
       },
       "Combined": {
         "detection_rate": 1.0,
         "median_delay_days": 5.0,
-        "false_alarms_per_100_region_days": 0.8858390517779164
+        "false_alarms_per_100_region_days": 0.6862133499688085
       },
       "Single hospital": {
-        "detection_rate": 0.9666666666666667,
-        "median_delay_days": 8.0,
-        "false_alarms_per_100_region_days": 1.2269938650306749
+        "detection_rate": 1.0,
+        "median_delay_days": 7.0,
+        "false_alarms_per_100_region_days": 1.1042944785276074
       }
     }
   },

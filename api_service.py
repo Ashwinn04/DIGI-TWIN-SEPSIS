@@ -125,22 +125,20 @@ async def health_check():
 # Model status endpoint
 @app.get("/models/status", response_model=ModelStatus)
 async def get_model_status():
-    """Get status of all models"""
-    return ModelStatus(
-        models_loaded=True,
-        model_count=7,
-        last_updated=datetime.now(),
-        model_versions={
-            "logistic_regression": "v1.0",
-            "random_forest": "v1.0",
-            "xgboost": "v1.0",
-            "lstm": "v1.0",
-            "gru_d": "v1.0",
-            "cnn_lstm": "v1.0",
-            "transformer": "v1.0"
-        },
-        system_status="operational"
-    )
+    """Get status of the models that are actually loaded"""
+    try:
+        system = _get_system()
+        names = sorted(set(system.baseline_models) | set(system.deep_learning_models))
+        return ModelStatus(
+            models_loaded=True,
+            model_count=len(names),
+            last_updated=datetime.now(),
+            model_versions={n: system.model_set for n in names},
+            system_status="operational"
+        )
+    except Exception as e:
+        return ModelStatus(models_loaded=False, model_count=0, last_updated=datetime.now(),
+                           model_versions={}, system_status=f"unavailable: {e}")
 
 # Single patient prediction endpoint
 @app.post("/predict", response_model=PredictionResponse)
@@ -256,13 +254,20 @@ async def compare_models(patient_data: PatientData):
     try:
         patient_dict = patient_data.dict()
         
-        # Get predictions from all models
-        model_predictions = _get_all_model_predictions(patient_dict)
-        
+        system = _get_system()
+        pred = system.get_comprehensive_prediction(_to_record(patient_dict))
+        if pred is None:
+            raise RuntimeError("Model system returned no prediction")
+        model_predictions = {
+            _MODEL_NAMES.get(n, n): {"risk_score": float(p["risk_score"]), "confidence": float(p.get("confidence", 0.0)),
+                                     "risk_level": _model_level(p["risk_level"])}
+            for n, p in pred["individual_predictions"].items() if isinstance(p, dict) and "risk_score" in p}
+
         return {
             "patient_id": patient_data.patient_id,
+            "model_set": system.model_set,
             "model_predictions": model_predictions,
-            "ensemble_prediction": _calculate_ensemble_prediction(model_predictions),
+            "ensemble_prediction": _calculate_ensemble_prediction(model_predictions, pred["ensemble_prediction"]),
             "model_agreement": _calculate_model_agreement(model_predictions),
             "timestamp": datetime.now()
         }
@@ -272,29 +277,64 @@ async def compare_models(patient_data: PatientData):
         raise HTTPException(status_code=500, detail=f"Model comparison failed: {str(e)}")
 
 # Helper functions
+# ---------------------------------------------------------------------------------------------
+# Model access. Everything below uses the same system as the dashboard and CLI (integration_real);
+# SEPSIS_MODEL_SET=protocol serves the models evaluated in outputs/results/final_results.csv.
+# ---------------------------------------------------------------------------------------------
+_system = None
+_API_NAMES = {"HR": "heart_rate", "Temp": "temperature", "Resp": "respiratory_rate", "MAP": "map", "Lactate": "lactate",
+              "WBC": "wbc", "Creatinine": "creatinine", "Platelets": "platelets", "Bilirubin_total": "bilirubin"}
+_MODEL_NAMES = {"grud": "gru_d"}
+
+
+def _get_system():
+    global _system
+    if _system is None:
+        from integration_real import get_integration_system
+        _system = get_integration_system()
+    if _system is None or not getattr(_system, "is_initialized", False):
+        raise RuntimeError("Prediction system is not initialised")
+    return _system
+
+
+def _to_record(patient_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Flatten the API schema into the feature names the models were trained on."""
+    v, l, d = patient_dict["vital_signs"], patient_dict["lab_values"], patient_dict["demographics"]
+    rec = {"HR": v["heart_rate"], "MAP": v["map"], "Temp": v["temperature"], "Resp": v["respiratory_rate"],
+           "Lactate": l["lactate"], "WBC": l["wbc"], "Creatinine": l["creatinine"],
+           "Age": d["age"], "Gender": d["gender"]}
+    if l.get("platelets") is not None:
+        rec["Platelets"] = l["platelets"]
+    if l.get("bilirubin") is not None:
+        rec["Bilirubin_total"] = l["bilirubin"]
+    rec.update(patient_dict.get("additional_data") or {})
+    return rec
+
+
+def _model_level(level: str) -> str:
+    return str(level).lower()
+
+
 def _predict_single_patient(patient_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Predict sepsis risk for a single patient"""
-    # Simulate model prediction (replace with actual model inference)
-    risk_score = np.random.uniform(0.1, 0.9)
-    
-    # Determine risk level
-    if risk_score >= 0.7:
-        risk_level = "high"
-    elif risk_score >= 0.4:
-        risk_level = "medium"
-    else:
-        risk_level = "low"
-    
-    # Calculate confidence
-    confidence = np.random.uniform(0.7, 0.95)
-    
-    # Get top features
-    top_features = [
-        {"feature": "lactate", "importance": 0.3, "value": patient_dict["lab_values"]["lactate"]},
-        {"feature": "heart_rate", "importance": 0.25, "value": patient_dict["vital_signs"]["heart_rate"]},
-        {"feature": "temperature", "importance": 0.2, "value": patient_dict["vital_signs"]["temperature"]}
-    ]
-    
+    """Predict sepsis risk for a single patient with the project's models (no simulation)."""
+    system = _get_system()
+    record = _to_record(patient_dict)
+    pred = system.get_comprehensive_prediction(record)
+    if pred is None:
+        raise RuntimeError("Model system returned no prediction")
+    ens = pred["ensemble_prediction"]
+    risk_score = float(np.clip(ens["average_risk_score"], 0.0, 1.0))
+    risk_level = _model_level(ens["risk_level"])
+    confidence = float(np.clip(ens.get("agreement_score", 0.0), 0.0, 1.0))   # agreement among models
+
+    # Reference-range deviations (a descriptive heuristic, not a model attribution)
+    top_features = []
+    for item in system.get_feature_importance(record).get("top_features", []):
+        canon = next((k for k in _API_NAMES if k.lower() == item["feature"].lower()), None)
+        top_features.append({"feature": _API_NAMES.get(canon, item["feature"]), "importance": item["importance"],
+                             "value": record.get(canon, patient_dict["vital_signs"].get(_API_NAMES.get(canon, ""), 0.0)),
+                             "method": "deviation from reference range"})
+
     # Generate recommendations
     recommendations = _generate_recommendations(risk_level, top_features)
     
@@ -315,44 +355,27 @@ def _predict_single_patient(patient_dict: Dict[str, Any]) -> Dict[str, Any]:
         "clinical_scores": clinical_scores,
         "timestamp": datetime.now(),
         "model_versions": {
-            "ensemble": "v1.0",
-            "primary_model": "gru_d_v1.0"
+            "model_set": system.model_set,
+            "models": ", ".join(sorted(n for n in pred["individual_predictions"] if n != "clinical_scores")),
         }
     }
 
 def _generate_explanation(patient_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate explainability for a prediction"""
-    # Simulate SHAP values
-    shap_values = {
-        "lactate": 0.3,
-        "heart_rate": 0.25,
-        "temperature": 0.2,
-        "map": 0.15,
-        "wbc": 0.1
-    }
-    
-    # Simulate LIME explanation
-    lime_explanation = [
-        {"feature": "lactate", "weight": 0.3, "description": "High lactate indicates tissue hypoxia"},
-        {"feature": "heart_rate", "weight": 0.25, "description": "Elevated heart rate suggests stress response"}
-    ]
-    
-    # Generate case narrative
-    case_narrative = f"Patient {patient_dict['patient_id']} shows elevated lactate ({patient_dict['lab_values']['lactate']:.1f} mmol/L) and heart rate ({patient_dict['vital_signs']['heart_rate']:.0f} bpm), indicating potential sepsis risk."
-    
-    # Confidence intervals
-    confidence_intervals = {
-        "risk_score": [0.45, 0.75],
-        "confidence": [0.65, 0.85]
-    }
-    
+    """Descriptive explanation. SHAP, LIME and integrated gradients are NOT computed by this service, so those
+    fields are null; the narrative lists deviations from reference ranges next to the model's own score."""
+    pred = _predict_single_patient(patient_dict)
+    parts = [f"{f['feature']} {f['value']:.1f}" for f in pred["top_features"][:3]]
+    narrative = (f"Patient {patient_dict['patient_id']}: model set '{pred['model_versions']['model_set']}' gives "
+                 f"{pred['risk_score']:.3f} ({pred['risk_level']} risk). Largest deviations from reference range: "
+                 f"{', '.join(parts) if parts else 'none'}. This is a descriptive summary, not a causal or "
+                 f"model-attribution explanation.")
     return {
         "patient_id": patient_dict["patient_id"],
-        "shap_values": shap_values,
-        "lime_explanation": lime_explanation,
-        "integrated_gradients": shap_values,  # Simplified
-        "case_narrative": case_narrative,
-        "confidence_intervals": confidence_intervals
+        "shap_values": None,
+        "lime_explanation": None,
+        "integrated_gradients": None,
+        "case_narrative": narrative,
+        "confidence_intervals": {}
     }
 
 def _calculate_sirs_score(patient_dict: Dict[str, Any]) -> int:
@@ -462,36 +485,30 @@ def _generate_recommendations(risk_level: str, top_features: List[Dict[str, Any]
     return recommendations
 
 def _get_all_model_predictions(patient_dict: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """Get predictions from all models"""
-    models = ["logistic_regression", "random_forest", "xgboost", "lstm", "gru_d", "cnn_lstm", "transformer"]
-    predictions = {}
-    
-    for model in models:
-        # Simulate model prediction
-        risk_score = np.random.uniform(0.1, 0.9)
-        confidence = np.random.uniform(0.7, 0.95)
-        
-        predictions[model] = {
-            "risk_score": risk_score,
-            "confidence": confidence,
-            "risk_level": "high" if risk_score >= 0.7 else "medium" if risk_score >= 0.4 else "low"
-        }
-    
-    return predictions
+    """Per-model predictions from the loaded system."""
+    system = _get_system()
+    pred = system.get_comprehensive_prediction(_to_record(patient_dict))
+    if pred is None:
+        raise RuntimeError("Model system returned no prediction")
+    out = {}
+    for name, p in pred["individual_predictions"].items():
+        if isinstance(p, dict) and "risk_score" in p:
+            out[_MODEL_NAMES.get(name, name)] = {"risk_score": float(p["risk_score"]),
+                                                 "confidence": float(p.get("confidence", 0.0)),
+                                                 "risk_level": _model_level(p["risk_level"])}
+    return out
 
-def _calculate_ensemble_prediction(model_predictions: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
-    """Calculate ensemble prediction"""
-    scores = [pred["risk_score"] for pred in model_predictions.values()]
-    confidences = [pred["confidence"] for pred in model_predictions.values()]
-    
-    ensemble_score = np.mean(scores)
-    ensemble_confidence = np.mean(confidences)
-    
-    return {
-        "risk_score": ensemble_score,
-        "confidence": ensemble_confidence,
-        "risk_level": "high" if ensemble_score >= 0.7 else "medium" if ensemble_score >= 0.4 else "low"
-    }
+def _calculate_ensemble_prediction(model_predictions: Dict[str, Dict[str, Any]],
+                                   system_ensemble: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Ensemble summary. When the system's own ensemble is supplied its calibrated score and level are used."""
+    confidences = [p["confidence"] for p in model_predictions.values()]
+    if system_ensemble is not None:
+        return {"risk_score": float(system_ensemble["average_risk_score"]),
+                "confidence": float(np.clip(system_ensemble.get("agreement_score", 0.0), 0.0, 1.0)),
+                "risk_level": _model_level(system_ensemble["risk_level"])}
+    scores = [p["risk_score"] for p in model_predictions.values()]
+    return {"risk_score": float(np.mean(scores)), "confidence": float(np.mean(confidences)) if confidences else 0.0,
+            "risk_level": "high" if np.mean(scores) >= 0.7 else "medium" if np.mean(scores) >= 0.4 else "low"}
 
 def _calculate_model_agreement(model_predictions: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate model agreement metrics"""

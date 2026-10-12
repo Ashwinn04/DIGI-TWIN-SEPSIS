@@ -1,0 +1,226 @@
+{
+  "horizon": 6,
+  "window": 24,
+  "features": [
+    "HR",
+    "O2Sat",
+    "Temp",
+    "SBP",
+    "MAP",
+    "DBP",
+    "Resp",
+    "BaseExcess",
+    "HCO3",
+    "FiO2",
+    "pH",
+    "PaCO2",
+    "SaO2",
+    "AST",
+    "BUN",
+    "Alkalinephos",
+    "Calcium",
+    "Chloride",
+    "Creatinine",
+    "Bilirubin_direct",
+    "Glucose",
+    "Lactate",
+    "Magnesium",
+    "Phosphate",
+    "Potassium",
+    "Bilirubin_total",
+    "TroponinI",
+    "Hct",
+    "Hgb",
+    "PTT",
+    "WBC",
+    "Fibrinogen",
+    "Platelets",
+    "Age",
+    "Gender",
+    "Unit1",
+    "Unit2",
+    "HospAdmTime",
+    "ICULOS",
+    "MAP_rolling_mean_6hr",
+    "MAP_delta_1hr",
+    "qSOFA_Resp",
+    "qSOFA_MAP",
+    "qSOFA_Score_simple"
+  ],
+  "models": {
+    "grud": {
+      "kind": "dl",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "platt": {
+        "coef": 0.8647574329000781,
+        "intercept": -4.395405684764768
+      },
+      "threshold_medium": 0.013837291859090328,
+      "threshold_high": 0.037789732217788696,
+      "threshold_f1": 0.05630801245570183,
+      "test": {
+        "auroc": 0.7961299326667907,
+        "auprc": 0.05720162349540453,
+        "sens_at_80_spec": 0.6616279069767442,
+        "brier": 0.010310668482017196,
+        "share_flagged_medium": 0.2189942320657195,
+        "share_flagged_high": 0.05492022272715923
+      }
+    },
+    "lstm": {
+      "kind": "dl",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "platt": {
+        "coef": 0.8243185805395503,
+        "intercept": -4.274386518471425
+      },
+      "threshold_medium": 0.01433931477367878,
+      "threshold_high": 0.03317805379629135,
+      "threshold_f1": 0.05232071131467819,
+      "test": {
+        "auroc": 0.7768194230275937,
+        "auprc": 0.05099139533274244,
+        "sens_at_80_spec": 0.5941860465116279,
+        "brier": 0.010337558522476743,
+        "share_flagged_medium": 0.22136632625034333,
+        "share_flagged_high": 0.05686783689979775
+      }
+    },
+    "cnn_lstm": {
+      "kind": "dl",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "platt": {
+        "coef": 0.8307882150618444,
+        "intercept": -4.33604539885092
+      },
+      "threshold_medium": 0.01428371760994196,
+      "threshold_high": 0.039090052247047424,
+      "threshold_f1": 0.059777405112981796,
+      "test": {
+        "auroc": 0.7929948236604824,
+        "auprc": 0.05294351783438093,
+        "sens_at_80_spec": 0.6232558139534884,
+        "brier": 0.01033307423190625,
+        "share_flagged_medium": 0.2193188344278259,
+        "share_flagged_high": 0.055606881570076656
+      }
+    },
+    "transformer": {
+      "kind": "dl",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "platt": {
+        "coef": 0.9686988895365295,
+        "intercept": -4.222108682368941
+      },
+      "threshold_medium": 0.013831326737999916,
+      "threshold_high": 0.029872890561819077,
+      "threshold_f1": 0.06573463976383209,
+      "test": {
+        "auroc": 0.7839411161663684,
+        "auprc": 0.060777158120786795,
+        "sens_at_80_spec": 0.6,
+        "brier": 0.010317230324386611,
+        "share_flagged_medium": 0.21888186970960574,
+        "share_flagged_high": 0.05415865564683263
+      }
+    },
+    "logistic_regression": {
+      "kind": "sklearn",
+      "file": "logistic_regression_s42.pkl",
+      "platt": {
+        "coef": 0.6685310814418793,
+        "intercept": -4.4695244529750076
+      },
+      "threshold_medium": 0.012052663373593035,
+      "threshold_high": 0.018682119286090575,
+      "threshold_f1": 0.027576053494025875,
+      "test": {
+        "auroc": 0.7439832280377573,
+        "auprc": 0.06314328590026909,
+        "sens_at_80_spec": 0.5732558139534883,
+        "brier": 0.010415170346848475,
+        "share_flagged_medium": 0.21587305550700392,
+        "share_flagged_high": 0.05574421333866014
+      }
+    },
+    "xgboost": {
+      "kind": "sklearn",
+      "file": "xgboost_s42.pkl",
+      "platt": {
+        "coef": 0.8675986877634609,
+        "intercept": -4.092935498361746
+      },
+      "threshold_medium": 0.012572573497891426,
+      "threshold_high": 0.03186626732349396,
+      "threshold_f1": 0.05174781754612923,
+      "test": {
+        "auroc": 0.7815617961666267,
+        "auprc": 0.05742881376380344,
+        "sens_at_80_spec": 0.6209302325581395,
+        "brier": 0.010341924292251359,
+        "share_flagged_medium": 0.2088566506030113,
+        "share_flagged_high": 0.057055107493320684
+      }
+    },
+    "random_forest": {
+      "kind": "sklearn",
+      "file": "random_forest_s42.pkl",
+      "platt": {
+        "coef": 1.364244080777038,
+        "intercept": -3.99185794739138
+      },
+      "threshold_medium": 0.011709332834439933,
+      "threshold_high": 0.026747118223430306,
+      "threshold_f1": 0.08293322598592315,
+      "test": {
+        "auroc": 0.7749951646995774,
+        "auprc": 0.0571525566170858,
+        "sens_at_80_spec": 0.6139534883720931,
+        "brier": 0.010332894982631721,
+        "share_flagged_medium": 0.2100551824015581,
+        "share_flagged_high": 0.0529101850233464
+      }
+    }
+  },
+  "protocol": "scripts/final_evaluation.py: patient split seed 42, onset-relative labels, pre-onset hours only",
+  "risk_levels": "Medium >= 80%-specificity threshold, High >= 95%-specificity threshold (validation, calibrated)",
+  "ensemble_dl": {
+    "members": [
+      "grud",
+      "lstm",
+      "cnn_lstm",
+      "transformer"
+    ],
+    "platt": {
+      "coef": 0.9249085779998715,
+      "intercept": -4.293903896408326
+    },
+    "threshold_medium": 0.013599751517176628,
+    "threshold_high": 0.03211796656250954,
+    "threshold_f1": 0.05275861546397209,
+    "test": {
+      "auroc": 0.7968883851241212,
+      "auprc": 0.05604942692840833,
+      "sens_at_80_spec": 0.6453488372093024,
+      "brier": 0.01031088287986546,
+      "share_flagged_medium": 0.22024270268920573,
+      "share_flagged_high": 0.05598142275712253
+    }
+  }
+}

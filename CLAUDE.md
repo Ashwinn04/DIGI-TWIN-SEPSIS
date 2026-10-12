@@ -18,6 +18,9 @@ python predict_new_data.py --json sample_high_risk_patient.json   # also --csv, 
 python train_baseline_models.py          # baselines -> outputs/models/ (uses fully_cleaned_sepsis_data.csv if present, else Dataset.csv)
 TRAIN_ONLY=rf REUSE_PREPROCESSORS=1 python train_baseline_models.py   # retrain one model on the deployed imputer/scaler/selector, merge its metrics
 python train_models.py --data_path Dataset.csv --models lstm --epochs 60 --num_seeds 3   # DL models (writes outputs/models/<model>_seed<N>.pt: back up deployed checkpoints first)
+python scripts/export_deployment.py      # package the evaluated models -> outputs/deployed/protocol_H6 (calibrators, thresholds)
+python scripts/check_deployment.py       # runtime path must reproduce the evaluation's predictions
+SEPSIS_MODEL_SET=protocol python predict_new_data.py --json sample_high_risk_patient.json   # serve the evaluated models (default: legacy)
 python scripts/final_evaluation.py       # THE reported results: all models, one protocol -> outputs/results/final_results.csv (~45 min, cached in outputs/final_run/)
 python -m surveillance.run_surveillance --data Dataset.csv --out outputs/surveillance
 python scripts/test_presentation_setup.py
@@ -38,6 +41,9 @@ Datasets (`*.csv`) and `*.pkl` are gitignored, so training data and the baseline
 - **`outputs/`** — checkpoints, scalers/imputers, `thresholds.json`, `config.json`, `feature_list.json`, metrics and results CSVs consumed at runtime. Several `.pt` checkpoints are committed to git. `*_demo_model.pt` are placeholder checkpoints, not trained models (only `scripts/evaluate_accuracy.py` reads them).
 
 ## Gotchas
+
+- **Two model sets.** `integration_real.py` serves `legacy` (the committed checkpoints, trained before the final evaluation) by default; `SEPSIS_MODEL_SET=protocol` (or `DEFAULT_MODEL_SET`) serves the models behind `final_results.csv` from `outputs/deployed/protocol_H6` via `explainability_utils/deploy.py`. Protocol scores are calibrated probabilities near the ~1% base rate; levels use validation operating points (Medium = 80% specificity, High = 95%), not 0.3/0.7. `api_service.py` now calls the same system (it used to return `np.random.uniform` scores; `outputs/prediction_log.jsonl` still contains those fake entries).
+- **GRU-D must not depend on its batch.** It used `mean(x, dim=[0, 1])` over the batch for imputation, so a patient's score changed with whoever was scored alongside them. `models/grud.py` now uses 0 (inputs are standardised). Any GRU-D checkpoint trained before that fix (including the legacy ones) was trained with the batch mean.
 
 - **Reported results come from `scripts/final_evaluation.py` only** (`outputs/results/final_results.csv`). Patient split from `outputs/cache/patient_splits_seed42.json`; label = labelled onset within the next H hours, with post-onset hours dropped (89.5% of positive rows in `Dataset.csv` are post-onset continuations and the label never reverts, so a persisted label otherwise inflates AUROC to ~0.95); preprocessing, calibration and threshold fitted on train/validation only. It does not write to `outputs/models/`. Report the `time_only` row alongside the models: hour-in-ICU alone reaches AUROC 0.67 because positives sit late in a stay. `outputs/results/model_comparison.csv`, `test_set_model_comparison.csv` and `evaluation_summary.md` are older, different-protocol numbers that the dashboard still reads.
 

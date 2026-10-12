@@ -130,13 +130,14 @@ Detection rate / median delay (days) / false alarms per 100 region-days (simulat
 |---|---|---|---|---|
 | Legacy (all hours) | 0.768 | 1.00 / 4 / 0.55 | 1.00 / 4 / 0.49 | 0.97 / 7 / 1.10 |
 | XGBoost, pre-onset OOF | 0.762 | 1.00 / 4 / 0.77 | 1.00 / 5 / 0.75 | 0.83 / 7 / 2.33 |
-| GRU-D, pre-onset OOF | 0.736 | 1.00 / 4 / 0.64 | 1.00 / 6 / 0.40 | 0.90 / 8 / 2.09 |
+| GRU-D, pre-onset OOF | 0.743 | 1.00 / 4 / 0.77 | 1.00 / 5 / 0.61 | 0.97 / 7 / 2.33 |
 
 Reading: the conclusions survive. Pooled alerts and the combined signal still detect every simulated outbreak,
-and a single hospital still does worse (83-90% detected, about twice the false alarms). The combined signal's
-delay rises from 4 to 5-6 days. Note what this experiment does and does not measure: the outbreak is made by
-moving a share of the *flagged* admissions into a window, so detection depends on how many patients are flagged
-and when they are admitted, not on lead time before onset (never modelled here). It evaluates the surveillance
-layer, not the early-warning ability of the risk model; for that see `final_results.csv`. Real viral series with
-GRU-D scores: `outputs/surveillance/leakage_safe/grud_real_viral/`. Sensitivity sweep:
+and a single hospital still does worse. Note what this experiment does and does not measure: the outbreak is
+made by moving a share of the *flagged* admissions into a window, so detection depends on how many patients are
+flagged and when they are admitted, not on lead time before onset (never modelled here). It evaluates the
+surveillance layer, not the early-warning ability of the risk model; for that see `final_results.csv`.
+Real viral series with GRU-D scores: combined EWMA 1.00 / 5 / 1.44, viral signal alone
+0.77 / 17 / 2.16 (`outputs/surveillance/leakage_safe/grud_real_viral/`). Sensitivity sweep:
 `outputs/surveillance/leakage_safe/grud_sweep/` (the k=10 suppression artefact described above is unchanged).
+GRU-D scores come from the batch-independent GRU-D (see `models/grud.py`); results before that fix are not comparable.
