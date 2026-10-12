@@ -3,7 +3,7 @@ torch>=1.12.0
 torchvision>=0.13.0
 numpy>=1.21.0
 pandas>=1.3.0
-scikit-learn>=1.0.0
+scikit-learn==1.7.2   # pickles in outputs/ were created with 1.7.2; other versions break the imputer and HGB model
 xgboost>=2.0.0,<3.0.0   # 3.x segfaults when unpickling outputs/models/xgboost.pkl
 
 # Visualization
