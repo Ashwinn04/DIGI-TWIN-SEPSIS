@@ -2,6 +2,7 @@
 Transformer Model: Attention-based modeling for long-range dependencies
 """
 import torch
+from typing import Optional
 import torch.nn as nn
 import torch.nn.functional as F
 import math
@@ -12,8 +13,8 @@ class Transformer(nn.Module):
     Transformer Model: Uses multi-head attention for modeling long-range dependencies
     """
     
-    def __init__(self, input_size: int, d_model: int = 64, nhead: int = 4,
-                 num_layers: int = 2, dropout: float = 0.2):
+    def __init__(self, input_size: int, d_model: int = 128, nhead: int = 8,
+                 num_layers: int = 4, dropout: float = 0.1):
         """
         Args:
             input_size: Number of input features
@@ -40,50 +41,41 @@ class Transformer(nn.Module):
             dropout=dropout,
             batch_first=True
         )
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers, enable_nested_tensor=False)
         
         # Output layer
         self.fc = nn.Linear(d_model, 1)
         self.dropout = nn.Dropout(dropout)
         
-    def forward(self, features: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
+    def forward(self, features: torch.Tensor, masks: torch.Tensor, delta_t: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Forward pass
         
         Args:
             features: [batch_size, seq_len, input_size] - input features
-            masks: [batch_size, seq_len, input_size] - mask indicating observed values
-            
+            masks: [batch_size, seq_len, input_size] - mask indicating observed values (not used for padding here)
+            delta_t: Time delta (not used in this model)
+
         Returns:
             Logits: [batch_size, 1]
         """
-        batch_size, seq_len, input_size = features.shape
-        
-        # Apply mask to features
-        masked_features = features * masks.float()
-        
+        if delta_t is None:  # regular hourly sampling: 0 for the first step, 1 afterwards
+            delta_t = torch.ones(features.shape[0], features.shape[1], 1, device=features.device)
+            delta_t[:, 0] = 0
         # Project to model dimension
-        x = self.input_projection(masked_features)
+        x = self.input_projection(features)
         
         # Add positional encoding
         x = self.pos_encoder(x)
         
-        # Create padding mask (1 for valid positions, 0 for padding)
-        # For simplicity, assume all positions are valid
-        padding_mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device=x.device)
+        # NOTE: Avoid src_key_padding_mask on MPS due to unsupported nested tensor op
+        encoded = self.transformer_encoder(x)
         
-        # Transformer encoder
-        # Note: PyTorch's TransformerEncoder expects mask where True = ignore
-        src_key_padding_mask = ~padding_mask
-        encoded = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
-        
-        # Use mean pooling over sequence dimension
-        # Or use CLS token if available
-        pooled = encoded.mean(dim=1)  # [batch_size, d_model]
-        
+        # Simple mean pooling over sequence dimension
+        pooled = encoded.mean(dim=1)
+
         # Output layer
         output = self.fc(self.dropout(pooled))
-        
         return output
 
 

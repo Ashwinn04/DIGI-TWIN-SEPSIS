@@ -19,12 +19,13 @@ def evaluate_model_accuracy(model, data_loader, device: str = 'cpu') -> float:
     all_preds = []
     all_targets = []
     with torch.no_grad():
-        for features, masks, targets in data_loader:
+        for features, masks, delta_t, targets in data_loader:
             features = features.to(device)
             masks = masks.to(device)
+            delta_t = delta_t.to(device)
             targets = targets.to(device)
 
-            logits = model(features, masks)
+            logits = model(features, masks, delta_t)
             probs = torch.sigmoid(logits).squeeze(1)
             preds = (probs >= 0.5).long().cpu().numpy()
             all_preds.append(preds)

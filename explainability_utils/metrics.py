@@ -4,7 +4,7 @@ Evaluation metrics for sepsis prediction models
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, precision_recall_curve
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix, classification_report, brier_score_loss, f1_score
 from typing import Tuple, List, Dict
 import warnings
 warnings.filterwarnings('ignore')
@@ -43,6 +43,49 @@ def calculate_auprc(y_true: np.ndarray, y_pred: np.ndarray) -> float:
         return 0.0
     
     return average_precision_score(y_true_clean, y_pred_clean)
+
+
+def calculate_brier_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    """Calculate Brier Score"""
+    valid_mask = ~(np.isnan(y_pred) | np.isnan(y_true))
+    if not np.any(valid_mask):
+        return 1.0
+    
+    y_true_clean = y_true[valid_mask]
+    y_pred_clean = y_pred[valid_mask]
+    
+    return brier_score_loss(y_true_clean, y_pred_clean)
+
+
+def find_threshold_for_recall(y_true: np.ndarray, y_pred: np.ndarray, 
+                                target_recall: float = 0.85) -> Tuple[float, float, float]:
+    """Find the decision threshold that achieves a target recall."""
+    # Ensure float32 for MPS compatibility
+    y_true = y_true.astype(np.float32) if y_true.dtype != np.float32 else y_true
+    y_pred = y_pred.astype(np.float32) if y_pred.dtype != np.float32 else y_pred
+    
+    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+    
+    # Convert to float32 to avoid float64 issues with MPS
+    precision = precision.astype(np.float32)
+    recall = recall.astype(np.float32)
+    thresholds = thresholds.astype(np.float32)
+    
+    # The last recall value is 0, and the corresponding threshold is not included.
+    # We append a threshold for it to make arrays same length.
+    thresholds = np.append(thresholds, np.float32(1.0))
+    
+    # Find the index of the recall value closest to the target recall
+    idx = np.argmin(np.abs(recall - target_recall))
+    
+    # If multiple thresholds achieve the same recall, choose the one with highest precision
+    close_recall_indices = np.where(np.abs(recall - target_recall) < 0.01)[0]
+    if len(close_recall_indices) > 0:
+        best_idx = close_recall_indices[np.argmax(precision[close_recall_indices])]
+    else:
+        best_idx = idx
+
+    return float(thresholds[best_idx]), float(precision[best_idx]), float(recall[best_idx])
 
 
 def calculate_sensitivity_at_specificity(y_true: np.ndarray, y_pred: np.ndarray, 
@@ -191,13 +234,19 @@ def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray,
         return {
             'auroc': 0.5,
             'auprc': 0.0,
+            'brier_score': 1.0,
             'sensitivity_at_80_specificity': 0.0,
             'accuracy': 0.0,
             'precision': 0.0,
             'recall': 0.0,
             'specificity': 0.0,
             'f1_score': 0.0,
-            'optimal_threshold': 0.5
+            'optimal_threshold': 0.5,
+            'threshold_at_recall_0.85': 0.5,
+            'precision_at_recall_0.85': 0.0,
+            'recall_at_recall_0.85': 0.0,
+            'f1_at_recall_0.85': 0.0,
+            'specificity_at_recall_0.85': 0.0
         }
     
     y_true_clean = y_true[valid_mask]
@@ -208,6 +257,7 @@ def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray,
     # Basic metrics
     metrics['auroc'] = calculate_auroc(y_true_clean, y_pred_clean)
     metrics['auprc'] = calculate_auprc(y_true_clean, y_pred_clean)
+    metrics['brier_score'] = calculate_brier_score(y_true_clean, y_pred_clean)
     metrics['sensitivity_at_80_specificity'] = calculate_sensitivity_at_specificity(
         y_true_clean, y_pred_clean, target_specificity=0.8)
     
@@ -235,6 +285,29 @@ def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray,
         metrics['precision'] + metrics['recall']) if (metrics['precision'] + metrics['recall']) > 0 else 0
     
     metrics['optimal_threshold'] = optimal_threshold
+    
+    # Metrics at Recall@0.85
+    thresh_r85, precision_r85, recall_r85 = find_threshold_for_recall(
+        y_true_clean, y_pred_clean, target_recall=0.85
+    )
+    y_pred_binary_r85 = (y_pred_clean >= thresh_r85).astype(int)
+    
+    # Check if confusion matrix can be calculated
+    if len(np.unique(y_true_clean)) > 1 and len(np.unique(y_pred_binary_r85)) > 1:
+        tn_r85, fp_r85, fn_r85, tp_r85 = confusion_matrix(y_true_clean, y_pred_binary_r85).ravel()
+    else: # Handle single-class case
+        tn_r85, fp_r85, fn_r85, tp_r85 = 0, 0, 0, 0
+        if len(y_true_clean) > 0:
+            if np.unique(y_true_clean)[0] == 0: # All negative
+                tn_r85 = len(y_true_clean)
+            else: # All positive
+                tp_r85 = len(y_true_clean)
+
+    metrics['threshold_at_recall_0.85'] = thresh_r85
+    metrics['precision_at_recall_0.85'] = precision_r85
+    metrics['recall_at_recall_0.85'] = recall_r85
+    metrics['f1_at_recall_0.85'] = f1_score(y_true_clean, y_pred_binary_r85)
+    metrics['specificity_at_recall_0.85'] = tn_r85 / (tn_r85 + fp_r85) if (tn_r85 + fp_r85) > 0 else 0
     
     return metrics
 
@@ -285,6 +358,7 @@ def print_metrics_summary(metrics: Dict[str, float], model_name: str = "Model"):
     print("=" * 50)
     print(f"AUROC: {metrics['auroc']:.4f}")
     print(f"AUPRC: {metrics['auprc']:.4f}")
+    print(f"Brier Score: {metrics['brier_score']:.4f}")
     print(f"Sensitivity @ 80% Specificity: {metrics['sensitivity_at_80_specificity']:.4f}")
     
     if 'lead_time' in metrics:
@@ -298,6 +372,12 @@ def print_metrics_summary(metrics: Dict[str, float], model_name: str = "Model"):
     print(f"Recall: {metrics['recall']:.4f}")
     print(f"Specificity: {metrics['specificity']:.4f}")
     print(f"F1-Score: {metrics['f1_score']:.4f}")
+
+    print(f"\nMetrics at Recall >= 0.85 (threshold={metrics['threshold_at_recall_0.85']:.4f}):")
+    print(f"Precision: {metrics['precision_at_recall_0.85']:.4f}")
+    print(f"Recall: {metrics['recall_at_recall_0.85']:.4f}")
+    print(f"F1-Score: {metrics['f1_at_recall_0.85']:.4f}")
+    print(f"Specificity: {metrics['specificity_at_recall_0.85']:.4f}")
 
 
 def compare_models(model_results: Dict[str, Dict[str, float]]):

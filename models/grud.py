@@ -2,6 +2,7 @@
 GRU-D Model: Handles missing data with time-decay mechanism
 """
 import torch
+from typing import Optional
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
@@ -12,8 +13,8 @@ class GRUD(nn.Module):
     GRU-D Model: Gated Recurrent Unit with Decay mechanism for handling missing data
     """
     
-    def __init__(self, input_size: int, hidden_size: int = 64, num_layers: int = 2,
-                 dropout: float = 0.2):
+    def __init__(self, input_size: int, hidden_size: int = 128, num_layers: int = 2,
+                 dropout: float = 0.3):
         """
         Args:
             input_size: Number of input features
@@ -26,69 +27,64 @@ class GRUD(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         
-        # Decay mechanism for missing values
-        self.decay_gamma = nn.Parameter(torch.ones(input_size))
+        # Decay parameters for mean and features
+        self.decay_gamma_x = nn.Parameter(torch.rand(input_size))
+        self.decay_gamma_h = nn.Parameter(torch.rand(hidden_size))
         
-        # GRU layers
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, 
-                          batch_first=True, dropout=dropout if num_layers > 1 else 0)
+        # GRU Cell
+        self.gru_cell = nn.GRUCell(input_size * 2, hidden_size) # Input is concat of decayed_x and mask
         
         # Output layer
         self.fc = nn.Linear(hidden_size, 1)
         self.dropout = nn.Dropout(dropout)
-        
-    def forward(self, features: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor, delta_t: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Forward pass
         
         Args:
-            features: [batch_size, seq_len, input_size] - input features (NaN filled with 0)
-            masks: [batch_size, seq_len, input_size] - mask indicating observed values
+            x: [batch_size, seq_len, input_size] - input features (imputed)
+            mask: [batch_size, seq_len, input_size] - mask indicating observed values
+            delta_t: [batch_size, seq_len, 1] - time since last observation for each feature
             
         Returns:
             Logits: [batch_size, 1]
         """
-        batch_size, seq_len, input_size = features.shape
+        if delta_t is None:  # regular hourly sampling: 0 for the first step, 1 afterwards
+            delta_t = torch.ones(x.shape[0], x.shape[1], 1, device=x.device)
+            delta_t[:, 0] = 0
+        batch_size, seq_len, _ = x.shape
+        h = torch.zeros(batch_size, self.hidden_size, device=x.device)
         
-        # Last observed values and time since last observation
-        last_observed = torch.zeros_like(features)
-        time_since_last = torch.zeros_like(features)
+        # Store mean of features for imputation (can be precomputed)
+        x_mean = torch.mean(x, dim=[0, 1]) 
         
-        # Compute decayed values
         for t in range(seq_len):
-            if t == 0:
-                last_observed[:, t] = features[:, t] * masks[:, t]
-                time_since_last[:, t] = torch.ones_like(features[:, t])
-            else:
-                # Update last observed values
-                update_mask = masks[:, t].bool()
-                last_observed[:, t] = torch.where(
-                    update_mask,
-                    features[:, t],
-                    last_observed[:, t-1]
-                )
-                
-                # Time since last observation (simplified - using step increment)
-                time_since_last[:, t] = torch.where(
-                    update_mask,
-                    torch.ones_like(time_since_last[:, t]),
-                    time_since_last[:, t-1] + 1.0
-                )
-        
-        # Decay mechanism: exp(-gamma * delta_t)
-        decay = torch.exp(-torch.relu(self.decay_gamma) * time_since_last)
-        
-        # Impute missing values using decay
-        mask_float = masks.float()
-        imputed_features = mask_float * features + (1 - mask_float) * (last_observed * decay)
-        
-        # GRU processing
-        gru_out, _ = self.gru(imputed_features)
-        
-        # Use last hidden state
-        last_hidden = gru_out[:, -1, :]
-        
+            x_t = x[:, t, :]       # current input [B, F]
+            m_t = mask[:, t, :].float()  # current mask as float [B, F]
+            d_t = delta_t[:, t, :]   # current delta_t [B, 1]
+            
+            # Feature-level decay
+            gamma_x = torch.exp(-torch.relu(self.decay_gamma_x))              # [F]
+            d_t_feat = d_t.expand(-1, x_t.shape[1])                           # [B, F]
+            decayed_gamma_x = torch.pow(gamma_x, d_t_feat)                    # [B, F]
+            
+            # Impute using decayed mean
+            x_imputed = m_t * x_t + (1.0 - m_t) * (decayed_gamma_x * x_mean)  # [B, F]
+            
+            # Hidden state decay
+            gamma_h = torch.exp(-torch.relu(self.decay_gamma_h))              # [H]
+            d_t_h = d_t.mean(dim=1, keepdim=True)                             # [B, 1]
+            decayed_gamma_h = torch.pow(gamma_h, d_t_h)                       # [B, H]
+            h = h * decayed_gamma_h
+
+            # Concatenate imputed features and mask
+            x_combined = torch.cat([x_imputed, m_t], dim=1)                   # [B, 2F]
+            
+            # Update hidden state
+            h = self.gru_cell(x_combined, h)
+            
         # Output layer
-        output = self.fc(self.dropout(last_hidden))
+        output = self.fc(self.dropout(h))
         
         return output

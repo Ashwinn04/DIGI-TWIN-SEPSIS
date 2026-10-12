@@ -4,7 +4,7 @@ Training utilities for deep learning models
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR
 import numpy as np
 from tqdm import tqdm
 from typing import Dict, List, Tuple, Optional
@@ -12,7 +12,55 @@ import os
 import json
 from datetime import datetime
 import warnings
+
+from .metrics import calculate_all_metrics
+
 warnings.filterwarnings('ignore')
+
+
+class FocalLoss(nn.Module):
+    """Focal Loss for imbalanced datasets."""
+    def __init__(self, alpha: float = 0.25, gamma: float = 2.0, pos_weight: Optional[torch.Tensor] = None):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.pos_weight = pos_weight
+        self.bce_loss = nn.BCEWithLogitsLoss(reduction='none')
+
+    def forward(self, inputs, targets):
+        bce_loss = self.bce_loss(inputs, targets)
+        probas = torch.sigmoid(inputs)
+        
+        # Calculate focal loss component
+        p_t = probas * targets + (1 - probas) * (1 - targets)
+        focal_weight = (1 - p_t).pow(self.gamma)
+        
+        loss = focal_weight * bce_loss
+        
+        # Apply alpha weighting
+        alpha_t = self.alpha * targets + (1 - self.alpha) * (1 - targets)
+        loss = alpha_t * loss
+        
+        # Apply pos_weight
+        if self.pos_weight is not None:
+            pos_weight_t = self.pos_weight * targets + (1 - targets)
+            loss = pos_weight_t * loss
+            
+        return loss.mean()
+
+
+class LabelSmoothingLoss(nn.Module):
+    """Label smoothing loss."""
+    def __init__(self, smoothing: float = 0.05, pos_weight: Optional[torch.Tensor] = None):
+        super(LabelSmoothingLoss, self).__init__()
+        self.smoothing = smoothing
+        self.pos_weight = pos_weight
+        self.bce_loss = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=pos_weight)
+
+    def forward(self, inputs, targets):
+        with torch.no_grad():
+            smooth_targets = targets * (1.0 - self.smoothing) + 0.5 * self.smoothing
+        return self.bce_loss(inputs, smooth_targets)
 
 
 class EarlyStopping:
@@ -43,8 +91,10 @@ class EarlyStopping:
             self.save_checkpoint(model)
         elif val_score < self.best_score + self.min_delta:
             self.counter += 1
+            print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
             if self.counter >= self.patience:
                 if self.restore_best_weights:
+                    print("Restoring best model weights.")
                     model.load_state_dict(self.best_weights)
                 return True
         else:
@@ -73,7 +123,7 @@ class ModelTrainer:
         self.train_scores = []
         self.val_scores = []
         
-    def train_epoch(self, train_loader, criterion, optimizer) -> Tuple[float, float]:
+    def train_epoch(self, train_loader, criterion, optimizer, scaler, grad_clip_value: float = 1.0) -> Tuple[float, Dict]:
         """Train for one epoch"""
         self.model.train()
         total_loss = 0.0
@@ -83,9 +133,11 @@ class ModelTrainer:
         all_preds = []
         all_targets = []
         
-        for batch_idx, (features, masks, targets) in enumerate(train_loader):
+        pbar = tqdm(train_loader, desc="Training", leave=False)
+        for batch_idx, (features, masks, delta_t, targets) in enumerate(pbar):
             features = features.to(self.device)
             masks = masks.to(self.device)
+            delta_t = delta_t.to(self.device)
             targets = targets.to(self.device)
             
             use_cuda_amp = (self.device == 'cuda')
@@ -119,19 +171,25 @@ class ModelTrainer:
             total_loss += loss.item() * features.size(0)
             total_samples += features.size(0)
             
-            # Store predictions for AUROC calculation
+            # Store predictions for metrics calculation
             with torch.no_grad():
                 preds = torch.sigmoid(outputs).cpu().numpy()
                 targets_cpu = targets.cpu().numpy()
                 all_preds.extend(preds.flatten())
                 all_targets.extend(targets_cpu.flatten())
-        
+            
+            pbar.set_postfix(loss=loss.item())
+
         avg_loss = total_loss / total_samples
-        avg_score = self._calculate_score(all_targets, all_preds)
+        # Ensure float32 for MPS compatibility
+        metrics = self._calculate_metrics(
+            np.array(all_targets, dtype=np.float32), 
+            np.array(all_preds, dtype=np.float32)
+        )
         
-        return avg_loss, avg_score
+        return avg_loss, metrics
     
-    def validate_epoch(self, val_loader, criterion) -> Tuple[float, float]:
+    def validate_epoch(self, val_loader, criterion) -> Tuple[float, Dict]:
         """Validate for one epoch"""
         self.model.eval()
         total_loss = 0.0
@@ -140,10 +198,12 @@ class ModelTrainer:
         all_preds = []
         all_targets = []
         
+        pbar = tqdm(val_loader, desc="Validating", leave=False)
         with torch.no_grad():
-            for features, masks, targets in val_loader:
+            for features, masks, delta_t, targets in pbar:
                 features = features.to(self.device)
                 masks = masks.to(self.device)
+                delta_t = delta_t.to(self.device)
                 targets = targets.to(self.device)
                 
                 use_cuda_amp = (self.device == 'cuda')
@@ -164,25 +224,26 @@ class ModelTrainer:
                 all_targets.extend(targets_cpu.flatten())
         
         avg_loss = total_loss / total_samples
-        avg_score = self._calculate_score(all_targets, all_preds)
+        # Ensure float32 for MPS compatibility
+        metrics = self._calculate_metrics(
+            np.array(all_targets, dtype=np.float32),
+            np.array(all_preds, dtype=np.float32)
+        )
         
-        return avg_loss, avg_score
+        return avg_loss, metrics
     
-    def _calculate_score(self, targets: List, preds: List) -> float:
-        """Calculate AUROC score"""
-        from sklearn.metrics import roc_auc_score
-        try:
-            if len(np.unique(targets)) > 1:
-                return roc_auc_score(targets, preds)
-            else:
-                return 0.5
-        except:
-            return 0.5
+    def _calculate_metrics(self, targets: np.ndarray, preds: np.ndarray) -> Dict:
+        """Calculate all metrics"""
+        return calculate_all_metrics(targets, preds)
     
     def train(self, train_loader, val_loader, 
-              epochs: int = 100, learning_rate: float = 0.001,
-              weight_decay: float = 1e-5, patience: int = 10,
-              class_weights: Optional[List[float]] = None,
+              epochs: int = 60, 
+              optimizer_config: Dict = {'name': 'AdamW', 'lr': 1e-3, 'weight_decay': 1e-4},
+              scheduler_config: Dict = {'name': 'CosineAnnealing', 'warmup_epochs': 3, 'T_max': 57},
+              loss_config: Dict = {'name': 'BCE', 'pos_weight': 1.0, 'label_smoothing': 0.0,
+                                   'focal_alpha': 0.25, 'focal_gamma': 2.0},
+              early_stopping_config: Dict = {'patience': 8, 'metric': 'auprc'},
+              grad_clip_value: float = 1.0,
               save_path: Optional[str] = None) -> Dict:
         """
         Train the model
@@ -191,10 +252,11 @@ class ModelTrainer:
             train_loader: Training data loader
             val_loader: Validation data loader
             epochs: Maximum number of epochs
-            learning_rate: Learning rate
-            weight_decay: Weight decay for regularization
-            patience: Early stopping patience
-            class_weights: Class weights for imbalanced data
+            optimizer_config: Optimizer configuration
+            scheduler_config: Scheduler configuration
+            loss_config: Loss function configuration
+            early_stopping_config: Early stopping configuration
+            grad_clip_value: Gradient clipping value
             save_path: Path to save model weights
             
         Returns:
@@ -218,49 +280,67 @@ class ModelTrainer:
         # Warmup scheduler
         warmup_epochs = scheduler_config.get('warmup_epochs', 0)
         
-        # Setup loss function
-        if class_weights is not None:
-            class_weights = torch.FloatTensor(class_weights).to(self.device)
-            criterion = nn.BCEWithLogitsLoss(pos_weight=class_weights[1]/class_weights[0])
-        else:
-            criterion = nn.BCEWithLogitsLoss()
+        # Loss function
+        pos_weight_tensor = torch.tensor([float(loss_config['pos_weight'])], dtype=torch.float32, device=self.device)
+        if loss_config['name'] == 'Focal':
+            criterion = FocalLoss(alpha=loss_config['focal_alpha'], gamma=loss_config['focal_gamma'],
+                                  pos_weight=pos_weight_tensor)
+        elif loss_config.get('label_smoothing', 0.0) > 0:
+            criterion = LabelSmoothingLoss(smoothing=loss_config['label_smoothing'],
+                                           pos_weight=pos_weight_tensor)
+        else: # BCE
+            criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight_tensor)
         
         # Early stopping
-        early_stopping = EarlyStopping(patience=patience)
+        early_stopping = EarlyStopping(patience=early_stopping_config['patience'])
+        es_metric = early_stopping_config['metric']
         
-        # Training loop
+        # Grad scaler for mixed precision (CUDA only)
+        use_cuda_amp = (self.device == 'cuda')
+        scaler = torch.cuda.amp.GradScaler(enabled=use_cuda_amp)
+        
         best_val_score = 0.0
         
         for epoch in range(epochs):
+            # Warmup phase
+            if epoch < warmup_epochs:
+                lr_scale = (epoch + 1) / max(1, warmup_epochs)
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = optimizer_config['lr'] * lr_scale
+            
             # Train
-            train_loss, train_score = self.train_epoch(train_loader, criterion, optimizer)
+            train_loss, train_metrics = self.train_epoch(train_loader, criterion, optimizer, scaler, grad_clip_value)
             
             # Validate
-            val_loss, val_score = self.validate_epoch(val_loader, criterion)
+            val_loss, val_metrics = self.validate_epoch(val_loader, criterion)
             
             # Update learning rate
-            scheduler.step(val_score)
-            
+            if epoch >= warmup_epochs:
+                if isinstance(scheduler, ReduceLROnPlateau):
+                    scheduler.step(val_metrics[es_metric])
+                else:
+                    scheduler.step()
+
             # Store history
             self.train_losses.append(train_loss)
             self.val_losses.append(val_loss)
-            self.train_scores.append(train_score)
-            self.val_scores.append(val_score)
+            self.train_scores.append(train_metrics)
+            self.val_scores.append(val_metrics)
             
             # Print progress
             print(f'Epoch {epoch+1}/{epochs}:')
-            print(f'  Train Loss: {train_loss:.4f}, Train AUROC: {train_score:.4f}')
-            print(f'  Val Loss: {val_loss:.4f}, Val AUROC: {val_score:.4f}')
+            print(f'  Train Loss: {train_loss:.4f}, Train AUPRC: {train_metrics["auprc"]:.4f}, Train AUROC: {train_metrics["auroc"]:.4f}')
+            print(f'  Val Loss: {val_loss:.4f}, Val AUPRC: {val_metrics["auprc"]:.4f}, Val AUROC: {val_metrics["auroc"]:.4f}')
             print(f'  Learning Rate: {optimizer.param_groups[0]["lr"]:.6f}')
             
             # Early stopping
-            if early_stopping(val_score, self.model):
-                print(f'Early stopping at epoch {epoch+1}')
+            if early_stopping(val_metrics[es_metric], self.model):
+                print(f'Early stopping at epoch {epoch+1} based on {es_metric}')
                 break
             
             # Save best model
-            if val_score > best_val_score:
-                best_val_score = val_score
+            if val_metrics[es_metric] > best_val_score:
+                best_val_score = val_metrics[es_metric]
                 if save_path:
                     self.save_model(save_path)
         
@@ -354,6 +434,9 @@ def get_device() -> str:
     if torch.cuda.is_available():
         device = 'cuda'
         print(f"Using GPU: {torch.cuda.get_device_name()}")
+    elif torch.backends.mps.is_available():
+        device = 'mps'
+        print("Using MPS (Apple Silicon GPU)")
     else:
         device = 'cpu'
         print("Using CPU")

@@ -5,18 +5,53 @@ Apply Platt scaling and isotonic regression to calibrate model probabilities
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import brier_score_loss, log_loss
 from typing import Dict, List, Tuple, Optional
 import warnings
+import os
+import json
+import joblib
+
 warnings.filterwarnings('ignore')
+
+
+class TemperatureScaling(torch.nn.Module):
+    """
+    Temperature scaling for calibrating model probabilities.
+    """
+    def __init__(self):
+        super(TemperatureScaling, self).__init__()
+        self.temperature = torch.nn.Parameter(torch.ones(1, dtype=torch.float32) * 1.5)
+
+    def forward(self, logits):
+        return logits / self.temperature
+
+    def calibrate(self, logits, labels, max_iter=50, lr=0.01):
+        """Tune the temperature of the model (using LBFGS)."""
+        # Ensure logits and labels are float32 for MPS compatibility
+        logits = logits.float()
+        labels = labels.long()
+        
+        criterion = torch.nn.CrossEntropyLoss()
+        optimizer = torch.optim.LBFGS([self.temperature], lr=lr, max_iter=max_iter)
+
+        def eval():
+            optimizer.zero_grad()
+            loss = criterion(self(logits), labels)
+            loss.backward()
+            return loss
+        
+        optimizer.step(eval)
+        return self
 
 
 class ModelCalibrator:
     """
-    Calibrate model probabilities using Platt scaling or isotonic regression
+    Calibrate model probabilities using Platt scaling, isotonic regression or temperature scaling.
     """
     
     def __init__(self, method: str = 'platt'):
@@ -30,13 +65,14 @@ class ModelCalibrator:
         self.calibrator = None
         self.is_fitted = False
         
-    def fit(self, y_true: np.ndarray, y_pred: np.ndarray) -> 'ModelCalibrator':
+    def fit(self, y_true: np.ndarray, y_pred: np.ndarray, logits: np.ndarray = None) -> 'ModelCalibrator':
         """
         Fit the calibrator
         
         Args:
             y_true: True binary labels
             y_pred: Predicted probabilities
+            logits: Logits (required for temperature scaling)
             
         Returns:
             Self for method chaining
@@ -49,18 +85,27 @@ class ModelCalibrator:
             # Isotonic regression
             self.calibrator = IsotonicRegression(out_of_bounds='clip')
             self.calibrator.fit(y_pred, y_true)
+        elif self.method == 'temperature':
+            if logits is None:
+                raise ValueError("Logits are required for temperature scaling.")
+            self.calibrator = TemperatureScaling()
+            # Ensure float32 for MPS compatibility
+            logits_tensor = torch.from_numpy(logits).float()
+            labels_tensor = torch.from_numpy(y_true).long()
+            self.calibrator.calibrate(logits_tensor, labels_tensor)
         else:
             raise ValueError(f"Unknown calibration method: {self.method}")
         
         self.is_fitted = True
         return self
     
-    def predict(self, y_pred: np.ndarray) -> np.ndarray:
+    def predict(self, y_pred: np.ndarray, logits: np.ndarray = None) -> np.ndarray:
         """
         Calibrate predictions
         
         Args:
             y_pred: Raw predicted probabilities
+            logits: Raw logits (required for temperature scaling)
             
         Returns:
             Calibrated probabilities
@@ -142,6 +187,7 @@ class ModelCalibrator:
 
 
 def calibrate_model_predictions(y_true: np.ndarray, y_pred: np.ndarray,
+                               logits: np.ndarray = None,
                                method: str = 'platt') -> Tuple[np.ndarray, ModelCalibrator]:
     """
     Calibrate model predictions
@@ -149,14 +195,15 @@ def calibrate_model_predictions(y_true: np.ndarray, y_pred: np.ndarray,
     Args:
         y_true: True binary labels
         y_pred: Raw predicted probabilities
-        method: Calibration method ('platt' or 'isotonic')
+        logits: Raw logits (optional, for temperature scaling)
+        method: Calibration method ('platt', 'isotonic', 'temperature')
         
     Returns:
         Tuple of (calibrated_predictions, calibrator)
     """
     calibrator = ModelCalibrator(method=method)
-    calibrator.fit(y_true, y_pred)
-    calibrated_preds = calibrator.predict(y_pred)
+    calibrator.fit(y_true, y_pred, logits)
+    calibrated_preds = calibrator.predict(y_pred, logits)
     
     return calibrated_preds, calibrator
 
