@@ -1,0 +1,74 @@
+{
+  "risk_model": {
+    "risk_source": "xgboost",
+    "horizon_h": 6,
+    "row_level_auroc": 0.7688411845531042,
+    "row_level_auprc": 0.05280079911021774,
+    "patient_level_auroc": 0.761568032307109,
+    "patient_level_auprc": 0.43389004107790996,
+    "n_patients": 13920,
+    "n_excluded_no_pre_onset_hours": 137,
+    "patient_sepsis_rate": 0.07916666666666666,
+    "cv": "5-fold patient-grouped, out-of-fold, pre-onset hours only"
+  },
+  "config": {
+    "days": 140,
+    "baseline_days": 60,
+    "outbreak_days": 21,
+    "sites": 12,
+    "regions": 4,
+    "replicates": 30,
+    "k_min_cell": 3,
+    "epsilon": 1.0,
+    "outbreak_intensity": 0.6,
+    "viral_multiplier": 3.0,
+    "risk_source": "xgboost"
+  },
+  "detection": {
+    "EWMA": {
+      "Sepsis-alert rate (pooled)": {
+        "detection_rate": 1.0,
+        "median_delay_days": 4.0,
+        "false_alarms_per_100_region_days": 0.7735495945102931
+      },
+      "Viral cases (pooled)": {
+        "detection_rate": 0.9333333333333333,
+        "median_delay_days": 14.0,
+        "false_alarms_per_100_region_days": 1.023081721771678
+      },
+      "Combined": {
+        "detection_rate": 1.0,
+        "median_delay_days": 5.0,
+        "false_alarms_per_100_region_days": 0.7485963817841547
+      },
+      "Single hospital": {
+        "detection_rate": 0.8333333333333334,
+        "median_delay_days": 7.0,
+        "false_alarms_per_100_region_days": 2.331288343558282
+      }
+    },
+    "CUSUM": {
+      "Sepsis-alert rate (pooled)": {
+        "detection_rate": 1.0,
+        "median_delay_days": 4.0,
+        "false_alarms_per_100_region_days": 0.9731752963194011
+      },
+      "Viral cases (pooled)": {
+        "detection_rate": 0.9666666666666667,
+        "median_delay_days": 13.0,
+        "false_alarms_per_100_region_days": 0.8359326263256395
+      },
+      "Combined": {
+        "detection_rate": 1.0,
+        "median_delay_days": 5.0,
+        "false_alarms_per_100_region_days": 0.8484092326887087
+      },
+      "Single hospital": {
+        "detection_rate": 0.9333333333333333,
+        "median_delay_days": 7.0,
+        "false_alarms_per_100_region_days": 1.2269938650306749
+      }
+    }
+  },
+  "disclaimer": "Hospital network, admission dates, viral counts and outbreak are simulated."
+}

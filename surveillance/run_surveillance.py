@@ -129,12 +129,20 @@ def main():
     ap.add_argument("--viral-multiplier", type=float, default=3.0)
     ap.add_argument("--viral-csv", default=None,
                     help="real weekly viral series from scripts/fetch_viral.py (default: simulated counts)")
+    ap.add_argument("--risk-source", default="legacy",
+                    help="legacy = original gradient-boosting scores (all hours); or a project model "
+                         "(grud, lstm, cnn_lstm, transformer, xgboost, ...) scored leakage-safe: "
+                         "out-of-fold, pre-onset hours only (surveillance/risk_protocol.py)")
     ap.add_argument("--viral-start", type=int, default=DEFAULT_START_EPIWEEK,
                     help="epiweek (YYYYWW) where the 140-day window starts when --viral-csv is given")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
 
-    pt, model_metrics = patient_risk_scores(a.data)
+    if a.risk_source == "legacy":
+        pt, model_metrics = patient_risk_scores(a.data)
+    else:
+        from .risk_protocol import patient_risk_scores_protocol
+        pt, model_metrics = patient_risk_scores_protocol(a.data, a.risk_source, cache_dir="outputs/final_run")
     pt["flag"] = pt.max_risk >= pt.max_risk.quantile(0.75)      # fixed 25% alert budget
     sites = build_network()
     real = prepare_real_viral(a.viral_csv, a.viral_start) if a.viral_csv else None
@@ -160,7 +168,8 @@ def main():
                       "replicates": a.replicates, "k_min_cell": a.k, "epsilon": a.epsilon,
                       "outbreak_intensity": a.intensity, "viral_multiplier": a.viral_multiplier,
                       **({"viral_source": "CDC FluView ILINet (real)", "viral_start_epiweek": a.viral_start,
-                          "detected_onsets": real["onsets"]} if real else {})},
+                          "detected_onsets": real["onsets"]} if real else {}),
+                      **({"risk_source": a.risk_source} if a.risk_source != "legacy" else {})},
            "detection": results,
            "disclaimer": ("Hospital network, admission dates and the sepsis-alert surge are simulated; "
                           "the viral series is real CDC FluView data." if real else

@@ -1,0 +1,97 @@
+parameter,value,detector,signal,detection_rate,median_delay_days,false_alarms_per_100_region_days
+sites_per_region_no_noise,1,EWMA,Sepsis-alert rate (pooled),1.0,3.0,0.5364940736119775
+sites_per_region_no_noise,1,EWMA,Viral cases (pooled),0.9333333333333333,11.0,0.9357454772301934
+sites_per_region_no_noise,1,EWMA,Combined,1.0,3.0,0.611353711790393
+sites_per_region_no_noise,1,EWMA,Single hospital,1.0,3.0,0.36809815950920244
+sites_per_region_no_noise,1,CUSUM,Sepsis-alert rate (pooled),1.0,2.0,0.6737367436057392
+sites_per_region_no_noise,1,CUSUM,Viral cases (pooled),0.9666666666666667,11.0,0.9482220835932627
+sites_per_region_no_noise,1,CUSUM,Combined,1.0,3.0,0.6986899563318777
+sites_per_region_no_noise,1,CUSUM,Single hospital,1.0,2.0,0.6134969325153374
+sites_per_region_no_noise,2,EWMA,Sepsis-alert rate (pooled),1.0,3.0,0.5364940736119775
+sites_per_region_no_noise,2,EWMA,Viral cases (pooled),1.0,10.0,0.5864004990642545
+sites_per_region_no_noise,2,EWMA,Combined,1.0,3.0,0.6363069245165315
+sites_per_region_no_noise,2,EWMA,Single hospital,1.0,4.0,0.7361963190184049
+sites_per_region_no_noise,2,CUSUM,Sepsis-alert rate (pooled),1.0,2.0,0.6737367436057392
+sites_per_region_no_noise,2,CUSUM,Viral cases (pooled),1.0,10.0,0.8983156581409857
+sites_per_region_no_noise,2,CUSUM,Combined,1.0,3.0,0.6737367436057392
+sites_per_region_no_noise,2,CUSUM,Single hospital,1.0,3.0,0.7361963190184049
+sites_per_region_no_noise,3,EWMA,Sepsis-alert rate (pooled),1.0,3.0,0.5240174672489083
+sites_per_region_no_noise,3,EWMA,Viral cases (pooled),1.0,10.5,0.561447286338116
+sites_per_region_no_noise,3,EWMA,Combined,1.0,3.0,0.3867747972551466
+sites_per_region_no_noise,3,EWMA,Single hospital,1.0,4.5,0.49079754601226994
+sites_per_region_no_noise,3,CUSUM,Sepsis-alert rate (pooled),1.0,2.0,0.6737367436057392
+sites_per_region_no_noise,3,CUSUM,Viral cases (pooled),1.0,10.0,0.7735495945102931
+sites_per_region_no_noise,3,CUSUM,Combined,1.0,3.0,0.5988771054273238
+sites_per_region_no_noise,3,CUSUM,Single hospital,1.0,5.0,0.6134969325153374
+sites_per_region_no_noise,5,EWMA,Sepsis-alert rate (pooled),1.0,3.0,0.5739238927011853
+sites_per_region_no_noise,5,EWMA,Viral cases (pooled),1.0,7.0,0.511540860885839
+sites_per_region_no_noise,5,EWMA,Combined,1.0,3.0,0.3119151590767311
+sites_per_region_no_noise,5,EWMA,Single hospital,1.0,5.0,1.8404907975460123
+sites_per_region_no_noise,5,CUSUM,Sepsis-alert rate (pooled),1.0,3.0,0.7236431690580162
+sites_per_region_no_noise,5,CUSUM,Viral cases (pooled),1.0,6.0,0.5489706799750468
+sites_per_region_no_noise,5,CUSUM,Combined,1.0,3.0,0.5364940736119775
+sites_per_region_no_noise,5,CUSUM,Single hospital,1.0,5.0,1.2269938650306749
+k_no_outbreak,1,EWMA,Sepsis-alert rate (pooled),0.16666666666666666,13.0,0.6666666666666666
+k_no_outbreak,1,EWMA,Viral cases (pooled),0.26666666666666666,16.5,0.8541666666666666
+k_no_outbreak,1,EWMA,Combined,0.13333333333333333,21.0,0.6041666666666666
+k_no_outbreak,1,EWMA,Single hospital,0.3333333333333333,13.5,1.7083333333333333
+k_no_outbreak,1,CUSUM,Sepsis-alert rate (pooled),0.16666666666666666,13.0,0.8020833333333334
+k_no_outbreak,1,CUSUM,Viral cases (pooled),0.36666666666666664,4.0,0.96875
+k_no_outbreak,1,CUSUM,Combined,0.16666666666666666,13.0,0.7395833333333334
+k_no_outbreak,1,CUSUM,Single hospital,0.3,12.0,0.75
+k_no_outbreak,3,EWMA,Sepsis-alert rate (pooled),0.16666666666666666,13.0,0.6875
+k_no_outbreak,3,EWMA,Viral cases (pooled),0.26666666666666666,20.5,0.71875
+k_no_outbreak,3,EWMA,Combined,0.1,12.0,0.59375
+k_no_outbreak,3,EWMA,Single hospital,0.3333333333333333,13.5,1.7083333333333333
+k_no_outbreak,3,CUSUM,Sepsis-alert rate (pooled),0.13333333333333333,23.0,0.7604166666666666
+k_no_outbreak,3,CUSUM,Viral cases (pooled),0.36666666666666664,6.0,0.90625
+k_no_outbreak,3,CUSUM,Combined,0.13333333333333333,14.5,0.7395833333333334
+k_no_outbreak,3,CUSUM,Single hospital,0.3,12.0,0.75
+k_no_outbreak,5,EWMA,Sepsis-alert rate (pooled),0.06666666666666667,7.5,0.7291666666666666
+k_no_outbreak,5,EWMA,Viral cases (pooled),0.3,19.0,0.875
+k_no_outbreak,5,EWMA,Combined,0.13333333333333333,15.5,0.5520833333333334
+k_no_outbreak,5,EWMA,Single hospital,0.3333333333333333,13.5,1.7083333333333333
+k_no_outbreak,5,CUSUM,Sepsis-alert rate (pooled),0.13333333333333333,9.0,0.8020833333333334
+k_no_outbreak,5,CUSUM,Viral cases (pooled),0.3333333333333333,16.5,0.8854166666666666
+k_no_outbreak,5,CUSUM,Combined,0.16666666666666666,21.0,0.6979166666666666
+k_no_outbreak,5,CUSUM,Single hospital,0.3,12.0,0.75
+k_no_outbreak,10,EWMA,Sepsis-alert rate (pooled),0.3333333333333333,17.5,2.0520833333333335
+k_no_outbreak,10,EWMA,Viral cases (pooled),0.5333333333333333,15.5,3.3020833333333335
+k_no_outbreak,10,EWMA,Combined,0.3333333333333333,20.0,2.1770833333333335
+k_no_outbreak,10,EWMA,Single hospital,0.3333333333333333,13.5,1.7083333333333333
+k_no_outbreak,10,CUSUM,Sepsis-alert rate (pooled),0.3333333333333333,17.5,1.6041666666666667
+k_no_outbreak,10,CUSUM,Viral cases (pooled),0.5333333333333333,14.5,2.4479166666666665
+k_no_outbreak,10,CUSUM,Combined,0.4666666666666667,14.5,1.8541666666666667
+k_no_outbreak,10,CUSUM,Single hospital,0.3,12.0,0.75
+k_viral_only,1,EWMA,Sepsis-alert rate (pooled),0.16666666666666666,10.0,0.7236431690580162
+k_viral_only,1,EWMA,Viral cases (pooled),0.9666666666666667,12.0,0.8359326263256395
+k_viral_only,1,EWMA,Combined,0.8333333333333334,15.0,0.6363069245165315
+k_viral_only,1,EWMA,Single hospital,0.26666666666666666,16.5,0.9815950920245399
+k_viral_only,1,CUSUM,Sepsis-alert rate (pooled),0.2,15.0,0.7735495945102931
+k_viral_only,1,CUSUM,Viral cases (pooled),1.0,11.0,0.8359326263256395
+k_viral_only,1,CUSUM,Combined,0.9666666666666667,14.0,0.810979413599501
+k_viral_only,1,CUSUM,Single hospital,0.4,14.0,0.9815950920245399
+k_viral_only,3,EWMA,Sepsis-alert rate (pooled),0.16666666666666666,10.0,0.6487835308796007
+k_viral_only,3,EWMA,Viral cases (pooled),0.9666666666666667,13.0,0.9606986899563319
+k_viral_only,3,EWMA,Combined,0.7666666666666667,15.0,0.611353711790393
+k_viral_only,3,EWMA,Single hospital,0.26666666666666666,16.5,0.9815950920245399
+k_viral_only,3,CUSUM,Sepsis-alert rate (pooled),0.2,15.0,0.7860262008733624
+k_viral_only,3,CUSUM,Viral cases (pooled),0.9666666666666667,11.0,0.8359326263256395
+k_viral_only,3,CUSUM,Combined,0.9,13.0,0.7361197754210854
+k_viral_only,3,CUSUM,Single hospital,0.4,14.0,0.9815950920245399
+k_viral_only,5,EWMA,Sepsis-alert rate (pooled),0.16666666666666666,20.0,0.5364940736119775
+k_viral_only,5,EWMA,Viral cases (pooled),0.9,13.0,1.023081721771678
+k_viral_only,5,EWMA,Combined,0.7333333333333333,14.0,0.561447286338116
+k_viral_only,5,EWMA,Single hospital,0.26666666666666666,16.5,0.9815950920245399
+k_viral_only,5,CUSUM,Sepsis-alert rate (pooled),0.23333333333333334,20.0,0.7610729881472239
+k_viral_only,5,CUSUM,Viral cases (pooled),0.9333333333333333,12.0,0.8983156581409857
+k_viral_only,5,CUSUM,Combined,0.8666666666666667,14.0,0.66126013724267
+k_viral_only,5,CUSUM,Single hospital,0.4,14.0,0.9815950920245399
+k_viral_only,10,EWMA,Sepsis-alert rate (pooled),0.23333333333333334,25.0,2.295695570804741
+k_viral_only,10,EWMA,Viral cases (pooled),0.9,14.0,2.64504054897068
+k_viral_only,10,EWMA,Combined,0.7,15.0,2.1085464753587027
+k_viral_only,10,EWMA,Single hospital,0.26666666666666666,16.5,0.9815950920245399
+k_viral_only,10,CUSUM,Sepsis-alert rate (pooled),0.3,20.0,1.6344354335620712
+k_viral_only,10,CUSUM,Viral cases (pooled),0.9333333333333333,10.0,1.8465377417342483
+k_viral_only,10,CUSUM,Combined,0.7666666666666667,11.0,1.5720524017467248
+k_viral_only,10,CUSUM,Single hospital,0.4,14.0,0.9815950920245399

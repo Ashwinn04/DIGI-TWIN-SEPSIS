@@ -113,11 +113,17 @@ def main():
     ap.add_argument("--data", default="Dataset.csv")
     ap.add_argument("--out", default="outputs/surveillance")
     ap.add_argument("--replicates", type=int, default=30)
+    ap.add_argument("--risk-source", default="legacy",
+                    help="legacy, or a project model scored leakage-safe (see run_surveillance --risk-source)")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
 
-    pt, metrics = patient_risk_scores(a.data)                  # computed once, reused by every cell
+    if a.risk_source == "legacy":
+        pt, metrics = patient_risk_scores(a.data)              # computed once, reused by every cell
+    else:
+        from .risk_protocol import patient_risk_scores_protocol
+        pt, metrics = patient_risk_scores_protocol(a.data, a.risk_source, cache_dir="outputs/final_run")
     print("Risk model (out-of-fold) patient AUROC:", round(metrics["patient_level_auroc"], 4))
     with ProcessPoolExecutor(a.workers, initializer=_init, initargs=(pt,)) as ex:
         futs = [ex.submit(_run, t, a.replicates) for t in _tasks() + _check_tasks()]

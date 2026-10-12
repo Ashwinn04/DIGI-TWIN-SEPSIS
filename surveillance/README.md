@@ -112,3 +112,31 @@ Read with these caveats (each backed by `sensitivity_checks.csv`):
   means fewer patients per site and more summed Laplace noise; the pooled sepsis series is the same patients
   regardless of site count (`sites_per_region_no_noise`). Only the viral-based signals gain from extra sites.
 - Single-hospital false-alarm rates rest on few monitored days per run and are noisy and non-monotonic.
+
+## Leakage-safe risk scores from the project's models (`--risk-source`)
+The original risk scores take the maximum over a whole stay, **including hours after onset**. In `Dataset.csv`
+89.5% of positive rows are post-onset continuations and the label never reverts, so those scores can flag
+patients who are already septic. `--risk-source <model>` replaces them with out-of-fold scores
+(5-fold, patient-grouped) from the project's own models, computed by `risk_protocol.py` with the same labels,
+preprocessing and architectures as `scripts/final_evaluation.py`, over **pre-onset hours only**
+(prediction horizon 6 h). 137 patients whose label is positive on their first row have no pre-onset hours and are excluded.
+
+    python -m surveillance.run_surveillance --data Dataset.csv --risk-source grud --out outputs/surveillance/leakage_safe/grud
+    python -m surveillance.sweep --data Dataset.csv --risk-source grud --out outputs/surveillance/leakage_safe/grud_sweep
+
+Detection rate / median delay (days) / false alarms per 100 region-days (simulated viral, 30 replicates):
+
+| Risk source | Patient-level AUROC | Pooled alerts (EWMA) | Combined (EWMA) | Single hospital (EWMA) |
+|---|---|---|---|---|
+| Legacy (all hours) | 0.768 | 1.00 / 4 / 0.55 | 1.00 / 4 / 0.49 | 0.97 / 7 / 1.10 |
+| XGBoost, pre-onset OOF | 0.762 | 1.00 / 4 / 0.77 | 1.00 / 5 / 0.75 | 0.83 / 7 / 2.33 |
+| GRU-D, pre-onset OOF | 0.736 | 1.00 / 4 / 0.64 | 1.00 / 6 / 0.40 | 0.90 / 8 / 2.09 |
+
+Reading: the conclusions survive. Pooled alerts and the combined signal still detect every simulated outbreak,
+and a single hospital still does worse (83-90% detected, about twice the false alarms). The combined signal's
+delay rises from 4 to 5-6 days. Note what this experiment does and does not measure: the outbreak is made by
+moving a share of the *flagged* admissions into a window, so detection depends on how many patients are flagged
+and when they are admitted, not on lead time before onset (never modelled here). It evaluates the surveillance
+layer, not the early-warning ability of the risk model; for that see `final_results.csv`. Real viral series with
+GRU-D scores: `outputs/surveillance/leakage_safe/grud_real_viral/`. Sensitivity sweep:
+`outputs/surveillance/leakage_safe/grud_sweep/` (the k=10 suppression artefact described above is unchanged).
