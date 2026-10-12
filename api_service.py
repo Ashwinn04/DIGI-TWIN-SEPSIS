@@ -18,7 +18,7 @@ import sys
 import os
 
 # Add project root to path
-project_root = '/Users/ashwinnair/Downloads/Capstone 2'
+project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(project_root)
 
 # Configure logging

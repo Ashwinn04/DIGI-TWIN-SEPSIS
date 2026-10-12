@@ -69,8 +69,7 @@ def load_real_data():
     """Load real ICU data from Person A"""
     # Try multiple possible paths for the dataset
     dataset_paths = [
-        'Dataset.csv',
-        'Capstone/Dataset.csv'
+        'Dataset.csv'
     ]
     
     for path in dataset_paths:

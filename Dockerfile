@@ -72,11 +72,11 @@ CMD ["python", "-m", "uvicorn", "api_service:app", "--host", "0.0.0.0", "--port"
 FROM base as dashboard
 
 # Copy only dashboard files
-COPY dashboard_real.py .
-COPY utils/ ./utils/
+COPY dashboard_real.py integration_real.py ./
+COPY explainability_utils/ ./explainability_utils/
 COPY models/ ./models/
 COPY outputs/ ./outputs/
-COPY Dataset.csv .
+# Dataset.csv is not in git: mount it at run time (-v "$PWD/Dataset.csv:/app/Dataset.csv")
 
 # Install Streamlit-specific dependencies
 RUN pip install --no-cache-dir streamlit
