@@ -7,6 +7,7 @@ Numbers for the paper come from these files only (written by `scripts/final_eval
 | `final_results.csv` | one row per model x horizon x seed: AUROC/AUPRC with 1000-resample patient-level bootstrap CIs, sens@80% spec, Brier, F1-point metrics |
 | `final_results_summary.csv` | mean and std over seeds 42/43/44 |
 | `sanity_checks.csv` | shuffled-label (should be ~0.5) and time-only controls |
+| `label_checks.csv` | from `scripts/check_label_leakage.py`: the 5 pre-engineered columns rebuild exactly from MAP/Resp (no label use); 89.5% of positive rows are post-onset; copy-previous-label AUROC 0.948; raw columns have no missing values |
 
 Older files, different protocol, **do not quote**:
 
