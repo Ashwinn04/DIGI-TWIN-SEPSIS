@@ -174,6 +174,9 @@ has("design-intent wording", "is intended to support clinical decision-making", 
 check("reference [4] cited exactly once, in the data-context sentence",
       len(re.findall(r"\[4\]", text)) == 1 and "such as MIMIC-III [4], were not used" in text)
 check("data and code availability section present", "DATA AND CODE AVAILABILITY" in text and "paper514-final" in text)
+check("availability: repository URL and data licence stated",
+      "https://github.com/Ashwinn04/DIGI-TWIN-SEPSIS" in text and "Creative Commons Attribution 4.0" in text
+      and "patient numbers 1 to 20,643" in text and "[[PLACEHOLDER" not in text)
 check("no tracked changes left", not list(root.iter(W + "ins")) and not list(root.iter(W + "del")))
 check("no comments left", not [n for n in zipfile.ZipFile(path).namelist() if "comments" in n])
 check("absent: real-time / sums-over-sites wording fixed",

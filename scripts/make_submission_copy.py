@@ -41,6 +41,32 @@ EDITS = [
 ]
 
 
+# Placeholders left by the authors' edit and the text that replaces them. Each key is matched by prefix against
+# "[[PLACEHOLDER: ...]]"; the replacement is plain text. Filled values are facts established in this repository
+# (see paper/README.md, "Data provenance").
+FILLS = {
+    "[[PLACEHOLDER: repository URL": "https://github.com/Ashwinn04/DIGI-TWIN-SEPSIS",
+    "[[PLACEHOLDER: source, licence": (
+        "the 14,057 stays are drawn from the public challenge training data (patient numbers 1 to 20,643), which are "
+        "released under the Creative Commons Attribution 4.0 licence [5], [16]. The rule that selected this subset is "
+        "not documented, and the file reached the authors with missing hourly values already replaced by column "
+        "medians and five derived columns added"),
+}
+
+
+def fill_placeholders(doc):
+    """Replace filled placeholders; drop the yellow highlight once none remain."""
+    for prefix, text in FILLS.items():
+        if text is None:
+            continue
+        pat = re.compile(re.escape(prefix) + r"[^\]]*\]\]")
+        assert len(pat.findall(doc)) == 1, f"placeholder {prefix!r} not found exactly once"
+        doc = pat.sub(lambda m: text, doc)
+    if "[[PLACEHOLDER" not in doc:
+        doc = doc.replace('<w:highlight w:val="yellow"/>', "")
+    return doc
+
+
 def accept_tracked_changes(doc):
     """Accept all tracked changes in document.xml text: keep insertions, drop deletions and change records."""
     flags = re.S
@@ -60,6 +86,7 @@ def main():
     zin = zipfile.ZipFile(SRC)
     doc = zin.read("word/document.xml").decode("utf8")
     doc = accept_tracked_changes(doc)
+    doc = fill_placeholders(doc)
 
     for old, new in EDITS:
         n = doc.count(old)
