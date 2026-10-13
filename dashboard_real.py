@@ -1343,204 +1343,10 @@ def _show_metrics_visualizations(df_metrics):
                 st.metric("Lowest Accuracy", f"{min_acc['Accuracy']:.1%}", model_name)
 
 def _show_demo_metrics():
-    # Performance data (placeholder)
-    metrics_data = {
-        'Model': ['Logistic Regression', 'Random Forest', 'XGBoost', 'GRU-D', 'LSTM', 'CNN-LSTM', 'Transformer'],
-        'Accuracy': [0.82, 0.84, 0.86, 0.88, 0.85, 0.87, 0.86],
-        'AUROC': [0.85, 0.87, 0.89, 0.91, 0.88, 0.90, 0.89],
-        'AUPRC': [0.45, 0.48, 0.52, 0.58, 0.55, 0.60, 0.57],
-        'Sensitivity': [0.82, 0.85, 0.87, 0.89, 0.86, 0.88, 0.87],
-        'Specificity': [0.78, 0.81, 0.83, 0.85, 0.82, 0.84, 0.83],
-        'F1-Score': [0.65, 0.68, 0.72, 0.75, 0.70, 0.73, 0.71]
-    }
-    df_metrics = pd.DataFrame(metrics_data)
-    st.subheader("Model Performance Comparison (demo)")
-    st.dataframe(df_metrics, width='stretch')
-    
-    # Model Accuracy Comparison Graph
-    st.subheader("🎯 Model Accuracy Comparison")
-    fig_acc = go.Figure()
-    
-    acc_values = df_metrics['Accuracy'].values
-    colors_acc = ['#d62728' if v < 0.7 else '#ff7f0e' if v < 0.85 else '#2ca02c' for v in acc_values]
-    
-    fig_acc.add_trace(go.Bar(
-        x=df_metrics['Model'],
-        y=acc_values,
-        marker_color=colors_acc,
-        text=[f'{v:.1%}' for v in acc_values],
-        textposition='auto',
-        hovertemplate='<b>%{x}</b><br>Accuracy: %{y:.3f} (%{text})<extra></extra>',
-        name='Accuracy'
-    ))
-    
-    fig_acc.add_hline(y=0.85, line_dash="dash", line_color="green", 
-                      annotation_text="Excellent (85%)", annotation_position="right")
-    fig_acc.add_hline(y=0.70, line_dash="dash", line_color="orange", 
-                      annotation_text="Good (70%)", annotation_position="right")
-    
-    fig_acc.update_layout(
-        title='Model Accuracy Comparison',
-        xaxis_title='Model',
-        yaxis_title='Accuracy',
-        yaxis=dict(range=[0, 1], tickformat='.0%'),
-        height=450,
-        xaxis=dict(tickangle=-45),
-        showlegend=False
-    )
-    st.plotly_chart(fig_acc, use_container_width=True)
-    
-    # Accuracy statistics
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        # Filter out NaN values before finding max
-        acc_valid = df_metrics['Accuracy'].dropna()
-        if len(acc_valid) > 0:
-            best_acc_idx = acc_valid.idxmax()
-            best_acc = df_metrics.loc[best_acc_idx]
-            model_name = str(best_acc.get('Model', 'Unknown'))
-            st.metric("Best Accuracy", f"{best_acc['Accuracy']:.1%}", model_name)
-    with col2:
-        avg_acc = df_metrics['Accuracy'].mean()
-        st.metric("Average Accuracy", f"{avg_acc:.1%}")
-    with col3:
-        # Filter out NaN values before finding min
-        acc_valid = df_metrics['Accuracy'].dropna()
-        if len(acc_valid) > 0:
-            min_acc_idx = acc_valid.idxmin()
-            min_acc = df_metrics.loc[min_acc_idx]
-            model_name = str(min_acc.get('Model', 'Unknown'))
-            st.metric("Lowest Accuracy", f"{min_acc['Accuracy']:.1%}", model_name)
-    with col4:
-        std_acc = df_metrics['Accuracy'].std()
-        st.metric("Std Deviation", f"{std_acc:.3f}")
-    
-    # Clinical interpretation
-    st.subheader("Clinical Interpretation")
-    
-    st.info("""
-    **Performance Metrics Explained:**
-    - **AUROC (Area Under ROC)**: Overall discrimination ability (0.5 = random, 1.0 = perfect)
-    - **AUPRC (Area Under Precision-Recall)**: Performance on imbalanced data (more relevant for sepsis)
-    - **Sensitivity**: Ability to correctly identify sepsis cases (true positive rate)
-    - **Specificity**: Ability to correctly identify non-sepsis cases (true negative rate)
-    - **F1-Score**: Harmonic mean of precision and recall
-    """)
-    
-    # Model recommendations
-    st.subheader("Model Recommendations")
-    
-    deep_learning_models = df_metrics[df_metrics['Model'].isin(['GRU-D', 'LSTM', 'CNN-LSTM'])]
-    baseline_models = df_metrics[df_metrics['Model'].isin(['Logistic Regression', 'Random Forest', 'XGBoost'])]
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.write("**Deep Learning Models**")
-        st.write(f"Average AUROC: {deep_learning_models['AUROC'].mean():.3f}")
-        st.write(f"Average AUPRC: {deep_learning_models['AUPRC'].mean():.3f}")
-        st.write("✅ Better performance on complex patterns")
-        st.write("✅ Can handle temporal dependencies")
-    
-    with col2:
-        st.write("**Baseline Models**")
-        st.write(f"Average AUROC: {baseline_models['AUROC'].mean():.3f}")
-        st.write(f"Average AUPRC: {baseline_models['AUPRC'].mean():.3f}")
-        st.write("✅ Faster inference")
-        st.write("✅ More interpretable")
-    
-    # Lead-Time Analysis
-    st.subheader("⏰ Lead-Time Analysis")
-    
-    # Simulate lead-time data
-    lead_times = np.random.normal(4.5, 1.2, 1000)  # 4.5 hours average
-    
-    fig_lead_time = px.histogram(
-        x=lead_times,
-        nbins=20,
-        title="Distribution of Alert Lead Times",
-        labels={'x': 'Hours Before Sepsis Onset', 'y': 'Frequency'},
-        color_discrete_sequence=['#1f77b4']
-    )
-    
-    fig_lead_time.add_vline(x=4.5, line_dash="dash", line_color="red", 
-                          annotation_text="Mean: 4.5 hours")
-    
-    st.plotly_chart(fig_lead_time, width='stretch')
-    
-    # Lead-time statistics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Mean Lead Time", f"{np.mean(lead_times):.1f} hours")
-    with col2:
-        st.metric("95th Percentile", f"{np.percentile(lead_times, 95):.1f} hours")
-    with col3:
-        st.metric("Early Detection Rate", f"{np.mean(lead_times >= 4) * 100:.1f}%")
-    
-    # Model Comparison Radar Chart
-    st.subheader("📊 Model Performance Radar")
-    
-    models = ['Logistic Regression', 'Random Forest', 'XGBoost', 'LSTM', 'GRU-D', 'CNN-LSTM', 'Transformer']
-    
-    # Performance metrics for radar chart
-    metrics = ['AUROC', 'AUPRC', 'Sensitivity', 'Specificity', 'Calibration', 'Timeliness']
-    
-    # Create radar chart data
-    radar_data = []
-    for model in models:
-        if model in df_metrics['Model'].values:
-            model_data = df_metrics[df_metrics['Model'] == model].iloc[0]
-            values = [
-                model_data['AUROC'],
-                model_data['AUPRC'],
-                model_data['Sensitivity'],
-                model_data['Specificity'],
-                0.85,  # Simulated calibration score
-                0.90   # Simulated timeliness score
-            ]
-            radar_data.append(values)
-        else:
-            # Default values for models not in metrics
-            values = [0.85, 0.50, 0.80, 0.80, 0.85, 0.90]
-            radar_data.append(values)
-    
-    fig_radar = go.Figure()
-    
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2']
-    
-    for i, model in enumerate(models):
-        fig_radar.add_trace(go.Scatterpolar(
-            r=radar_data[i],
-            theta=metrics,
-            fill='toself',
-            name=model,
-            opacity=0.7,
-            line_color=colors[i % len(colors)]
-        ))
-    
-    fig_radar.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1]
-            )),
-        showlegend=True,
-        title="Model Performance Comparison - Radar Chart",
-        height=600
-    )
-    
-    st.plotly_chart(fig_radar, width='stretch')
-    
-    # Radar chart interpretation
-    st.info("""
-    **Radar Chart Interpretation:**
-    - **AUROC**: Overall discrimination ability
-    - **AUPRC**: Performance on imbalanced data
-    - **Sensitivity**: True positive rate
-    - **Specificity**: True negative rate
-    - **Calibration**: Prediction reliability
-    - **Timeliness**: Early detection capability
-    """)
+    """Fallback when no evaluation results are available. It used to chart invented numbers
+    (AUROC 0.85-0.91); it now says that nothing is available."""
+    st.warning("No evaluation results found. Run `python scripts/final_evaluation.py` to produce "
+               "outputs/results/final_results.csv; no performance figures are shown until then.")
 
 def _first_existing_path(candidates):
     """Return first existing path among candidate relative paths (checked under project_root and as-is)."""
@@ -1864,22 +1670,23 @@ def save_manual_patient_to_csv(patient_dict, csv_path: str = 'outputs/added_pati
         return False, str(e)
 
 def export_performance_data():
-    """Export model performance data"""
+    """Export the evaluated models' performance (from final_results.csv; nothing is invented)."""
+    path = os.path.join(project_root, 'outputs', 'results', 'final_results.csv')
+    if not os.path.exists(path):
+        st.error("outputs/results/final_results.csv not found; run scripts/final_evaluation.py first.")
+        return
+    r = pd.read_csv(path)
+    r = r[(r.horizon == 6) & (r.seed.astype(str) == 'ensemble')]
     performance_data = {
         'timestamp': datetime.now().isoformat(),
-        'models': ['Logistic Regression', 'Random Forest', 'XGBoost', 'GRU-D', 'LSTM', 'CNN-LSTM', 'Transformer'],
-        'metrics': {
-            'AUROC': [0.85, 0.87, 0.89, 0.91, 0.88, 0.90, 0.89],
-            'AUPRC': [0.45, 0.48, 0.52, 0.58, 0.55, 0.60, 0.57],
-            'Sensitivity': [0.82, 0.85, 0.87, 0.89, 0.86, 0.88, 0.87],
-            'Specificity': [0.78, 0.81, 0.83, 0.85, 0.82, 0.84, 0.83]
-        }
+        'source': 'outputs/results/final_results.csv (H=6 h, test set, seed ensemble)',
+        'models': r.model.tolist(),
+        'metrics': {'AUROC': r.auroc.round(4).tolist(), 'AUPRC': r.auprc.round(4).tolist(),
+                    'Sensitivity_at_80_specificity': r.sens_at_80_spec.round(4).tolist(),
+                    'Brier': r.brier.round(5).tolist()}
     }
-    
-    # Save to file
     with open('outputs/performance_data.json', 'w') as f:
         json.dump(performance_data, f, indent=2)
-    
     st.success("📊 Performance data exported to outputs/performance_data.json")
 
 def calculate_metrics(high_threshold, medium_threshold):
