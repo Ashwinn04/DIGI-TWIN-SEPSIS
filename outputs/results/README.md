@@ -14,3 +14,6 @@ Older files, different protocol, **do not quote**:
   legacy dashboard path (`SEPSIS_MODEL_SET=legacy`) and `integration_real.py` ensemble weights read them.
 - `literature_comparison.md`: published results from other papers, for the related-work section.
 - `archive/`: `evaluation_summary.md` (23-patient run, chance-level AUROC) and the Oct 2025 GRU-D training logs.
+
+`reproduction/`: Anjith's independent rerun of `final_evaluation.py` on another machine (plan Step 3
+"second person reruns it"). Comparison in `docs/HANDOFF_ANJITH.md` section 7.

@@ -64,3 +64,25 @@ base rate; Medium/High are the 80%/95% specificity operating points, not 0.3/0.7
 One dataset, one split; effective positives come from ~100 test patients; calibration skill is small
 (Brier 2-3% better than predicting the prevalence); precision at the F1 point is ~9-11%; lead time before
 onset was not measured; the dataset's labelled onset is already ~6 h before clinical onset.
+
+## 7. Anjith's response (2026-10-13, branch `ash2`)
+- [x] **Rerun from a fresh clone of `ash2`** (`--horizons 3 6 12 --sanity`, macOS arm64, Python 3.12, torch 2.14.1;
+      environment in `requirements.lock.txt`). Results: `outputs/results/reproduction/anjith_*.csv`.
+  - Same data, split and labels: `n_test`, `n_test_pos`, `n_test_patients` and all 12 sanity-check AUROCs identical.
+  - **Bit-identical (AUROC diff 0):** time-only, LR, decision tree, KNN, RF, XGBoost, HistGB, GRU-D. LSTM within 2e-4.
+  - **Differ:** Transformer (per-seed up to 0.047 at H=3; H=6 mean 0.777 vs 0.772), CNN-LSTM (up to 0.004),
+    ANN (H=12 mean 0.754 vs 0.772, the only seed mean outside 2 std). Retrained Transformer/CNN-LSTM weights differ
+    from the deployed ones, so their training is not bit-reproducible across machines.
+  - H=6 seed means agree within noise for every model. Conclusion for the chapter is unchanged: models are
+    statistically comparable at ~0.74-0.79. Report mean +/- std over seeds, not single-seed or ensemble rows.
+  - `scripts/check_deployment.py --workdir <my rerun>`: GRU-D, LR, XGBoost OK; LSTM/CNN-LSTM/Transformer MISMATCH only
+    because my retrained checkpoints differ from the bundle (expected). Needs your cached `outputs/final_run/preds`
+    to check the bundle itself; it cannot run from a fresh clone.
+- [x] **0.92-0.96:** placeholder table never replaced; see `docs/RESULTS_PROVENANCE.md`.
+- [x] **Architectures:** the restored `5f81942` classes in `models/` are final. My `bbe1ee5` "improved" models are
+      archived, not re-evaluated: tag `archive/anjith-improved-models`. Do not report them.
+- [x] **Rebased on `ash2`.**
+- [ ] **Chapter review against `final_results.csv`:** waiting for the chapter draft.
+
+Also added: committed patient split (`outputs/cache/patient_splits_seed42.json`), `requirements.lock.txt`,
+`scripts/test_setup.py`, README "Reproduce the paper results", stale results moved to `outputs/results/archive/`.
