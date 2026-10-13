@@ -164,11 +164,31 @@ for pat, why in [(r"0\.9[2-6]\d?\b", "old 0.92-0.96 results"), (r"placeholder", 
                  (r"Real-time\s+EHR", "real-time EHR data"), (r"Heart rate, lactate, MAP trends", "fake SHAP caption")]:
     check(f"absent: {why}", not re.search(pat, scan), "")
 fig_caps = re.findall(r"FIGURE\s*(\d+)\.", " ".join(paras))
+# ---- final-round edits and housekeeping
+has("abstract: hourly monitoring and 6-hour estimate", "Digital Twin architecture for hourly patient monitoring",
+    "estimate the risk that sepsis onset occurs within the next 6 hours")
+check("absent: 'several hours before onset'", "several hours before onset" not in text)
+check("index term: privacy-preserving aggregation", "Privacy-Preserving Aggregation" in text and "Differential Privacy" not in text)
+has("design-intent wording", "is intended to support clinical decision-making", "clinical utility was not evaluated here",
+    "Hourly risk estimation, clinician-facing dashboard")
+check("reference [4] cited exactly once, in the data-context sentence",
+      len(re.findall(r"\[4\]", text)) == 1 and "such as MIMIC-III [4], were not used" in text)
+check("data and code availability section present", "DATA AND CODE AVAILABILITY" in text and "paper514-final" in text)
+check("no tracked changes left", not list(root.iter(W + "ins")) and not list(root.iter(W + "del")))
+check("no comments left", not [n for n in zipfile.ZipFile(path).namelist() if "comments" in n])
+check("absent: real-time / sums-over-sites wording fixed",
+      "feature computation in real time" not in text and "help clinicians see" not in text
+      and "from a clinical utility perspective" not in text)
 check("absent: untested cause of the k=10 effect", "varies with the number of sites that pass suppression" not in text)
 check("figure captions numbered 1..5 in order", fig_caps == ["1", "2", "3", "4", "5"], str(fig_caps))
 
+open_ph = re.findall(r"\[\[PLACEHOLDER[^\]]*\]\]", text)
 bad = [r for r in results if not r[0]]
 for ok, desc, detail in results:
     print(("PASS  " if ok else "FAIL  ") + desc + ("" if ok or not detail else f"   [{detail}]"))
 print(f"\n{len(results) - len(bad)}/{len(results)} checks passed for {path.name}")
+if open_ph:
+    print(f"OPEN: {len(open_ph)} placeholder(s) still to be filled by the authors:")
+    for ph in open_ph:
+        print("   -", ph[:150])
 sys.exit(1 if bad else 0)

@@ -1,9 +1,16 @@
 # Paper 514: manuscript and where every number comes from
 
-`514_Manuscript_revised_clean.docx` is the manuscript with all tracked changes accepted (13 Oct 2026); it still
-contains the authors' 11 review comments. `514_Manuscript_submission_copy.docx` is built from it by
-`scripts/make_submission_copy.py` (comments removed, unused images dropped, three wording fixes and a corrected
-explanation of the k = 10 effect) and is the file `scripts/verify_manuscript.py` checks (61 checks). Nothing in the text is typed from
+Provenance, newest last:
+
+1. `514_Manuscript_revised_clean.docx`: all tracked changes accepted (13 Oct 2026); still has the 11 review comments.
+2. `514_Manuscript_authors_edit_2026-10-13.docx`: the authors' final-round edits (abstract, index terms,
+   design-intent wording, citation [4] -> [5], data and code availability section) as 39 tracked changes.
+3. `514_Manuscript_submission_copy.docx`: built from (2) by `scripts/make_submission_copy.py` (tracked changes
+   accepted, comments removed, unused images dropped, three wording fixes and the corrected explanation of the
+   k = 10 effect). This is the file `scripts/verify_manuscript.py` checks (70 checks).
+
+**Open before submission:** the two highlighted `[[PLACEHOLDER ...]]` items in the Data and Code Availability
+section (repository link or archive DOI; source and licence of the 14,057-stay file). Nothing in the text is typed from
 memory: each number below is produced by a script in this repository and stored in a file.
 
 Regenerate everything from a clean checkout (needs `Dataset.csv`, not tracked):

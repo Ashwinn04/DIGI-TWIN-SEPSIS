@@ -3,10 +3,12 @@
 
     python scripts/make_submission_copy.py
 
-Reads  paper/514_Manuscript_revised_clean.docx
+Reads  the newest authors' edit (paper/514_Manuscript_authors_edit_*.docx) if present, else
+       paper/514_Manuscript_revised_clean.docx
 Writes paper/514_Manuscript_submission_copy.docx
 
 Changes (each asserted to match exactly once):
+  * any tracked changes in the source are accepted (insertions kept, deletions dropped);
   * three wording fixes from the audit (docs/MANUSCRIPT_AUDIT.md, round 2 "smaller points" and the
     deployment-architecture wording);
   * all review comments removed (comment ranges, references and the comments parts);
@@ -19,7 +21,8 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "paper" / "514_Manuscript_revised_clean.docx"
+_edits = sorted((ROOT / "paper").glob("514_Manuscript_authors_edit_*.docx"))
+SRC = _edits[-1] if _edits else ROOT / "paper" / "514_Manuscript_revised_clean.docx"
 DST = ROOT / "paper" / "514_Manuscript_submission_copy.docx"
 
 EDITS = [
@@ -38,9 +41,25 @@ EDITS = [
 ]
 
 
+def accept_tracked_changes(doc):
+    """Accept all tracked changes in document.xml text: keep insertions, drop deletions and change records."""
+    flags = re.S
+    # rows deleted as a whole
+    doc = re.sub(r"<w:tr\b(?:(?!</w:tr>).)*?<w:trPr>(?:(?!</w:trPr>).)*?<w:del\b.*?</w:tr>", "", doc, flags=flags)
+    doc = re.sub(r"<w:del\b[^>]*/>", "", doc)                       # paragraph-mark deletions
+    doc = re.sub(r"<w:del\b[^>]*>.*?</w:del>", "", doc, flags=flags)  # deleted runs
+    doc = re.sub(r"<w:ins\b[^>]*/>", "", doc)                       # inserted paragraph/row marks
+    doc = re.sub(r"</?w:ins\b[^>]*>", "", doc)                       # unwrap insertions
+    doc = re.sub(r"<w:(rPrChange|pPrChange|sectPrChange|tblPrChange|trPrChange|tcPrChange|tblGridChange)\b[^>]*>.*?</w:\1>",
+                 "", doc, flags=flags)
+    assert "<w:del " not in doc and "<w:ins " not in doc, "tracked changes remain"
+    return doc
+
+
 def main():
     zin = zipfile.ZipFile(SRC)
     doc = zin.read("word/document.xml").decode("utf8")
+    doc = accept_tracked_changes(doc)
 
     for old, new in EDITS:
         n = doc.count(old)
@@ -84,6 +103,7 @@ def main():
             elif name == "[Content_Types].xml":
                 data = ct.encode("utf8")
             zout.writestr(item, data)
+    print(f"source: {SRC.relative_to(ROOT)}")
     print(f"wrote {DST.relative_to(ROOT)} ({DST.stat().st_size / 1024:.0f} KB; source {SRC.stat().st_size / 1024:.0f} KB)")
     print("dropped parts:", ", ".join(sorted(dropped)))
 
