@@ -1,13 +1,13 @@
 # Paper 514: manuscript and where every number comes from
 
-Provenance, newest last:
+`514_Manuscript_submission_copy.docx` is the final manuscript (the only version kept in the working tree). It has no
+tracked changes, comments or placeholders and is the file `scripts/verify_manuscript.py` checks (71 checks).
 
-1. `514_Manuscript_revised_clean.docx`: all tracked changes accepted (13 Oct 2026); still has the 11 review comments.
-2. `514_Manuscript_authors_edit_2026-10-13.docx`: the authors' final-round edits (abstract, index terms,
-   design-intent wording, citation [4] -> [5], data and code availability section) as 39 tracked changes.
-3. `514_Manuscript_submission_copy.docx`: built from (2) by `scripts/make_submission_copy.py` (tracked changes
-   accepted, comments removed, unused images dropped, three wording fixes and the corrected explanation of the
-   k = 10 effect). This is the file `scripts/verify_manuscript.py` checks (70 checks).
+Provenance: it was built by `scripts/make_submission_copy.py` from the authors' final-round tracked edits
+(`514_Manuscript_authors_edit_2026-10-13.docx`, itself the accepted-changes `514_Manuscript_revised_clean.docx` plus
+the authors' edits). Those two input files were removed from the working tree on 14 Oct 2026; they remain in git
+history and in the release tag, e.g.
+`git show paper514-final:paper/514_Manuscript_authors_edit_2026-10-13.docx > paper/514_Manuscript_authors_edit_2026-10-13.docx`.
 
 The two placeholders in the Data and Code Availability section are filled by `make_submission_copy.py` (repository
 link; data provenance and licence, evidence below).

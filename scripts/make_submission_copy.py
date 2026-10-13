@@ -7,6 +7,10 @@ Reads  the newest authors' edit (paper/514_Manuscript_authors_edit_*.docx) if pr
        paper/514_Manuscript_revised_clean.docx
 Writes paper/514_Manuscript_submission_copy.docx
 
+The input files are no longer kept in the working tree (only the final submission copy is). They are in git
+history and the release tag; restore one with, for example:
+    git show paper514-final:paper/514_Manuscript_authors_edit_2026-10-13.docx > paper/514_Manuscript_authors_edit_2026-10-13.docx
+
 Changes (each asserted to match exactly once):
   * any tracked changes in the source are accepted (insertions kept, deletions dropped);
   * three wording fixes from the audit (docs/MANUSCRIPT_AUDIT.md, round 2 "smaller points" and the
@@ -83,6 +87,10 @@ def accept_tracked_changes(doc):
 
 
 def main():
+    if not SRC.exists():
+        sys.exit(f"Build input {SRC.name} is not in the working tree. Restore it from the release tag:\n"
+                 "  git show paper514-final:paper/514_Manuscript_authors_edit_2026-10-13.docx "
+                 "> paper/514_Manuscript_authors_edit_2026-10-13.docx")
     zin = zipfile.ZipFile(SRC)
     doc = zin.read("word/document.xml").decode("utf8")
     doc = accept_tracked_changes(doc)
