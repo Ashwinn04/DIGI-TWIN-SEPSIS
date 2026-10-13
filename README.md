@@ -60,13 +60,29 @@ Then open your browser to: **http://localhost:8501**
 5. **Clinical Scores**: SIRS, qSOFA, NEWS2, SOFA calculations
 6. **Explainability**: Understand which features drive predictions
 
-### Model Training (Optional)
-If you want to train new models:
+### Reproduce the paper results
+Every number in the paper comes from `outputs/results/final_results.csv` (models) and
+`outputs/surveillance/sensitivity.csv` (surveillance). Run from the repo root, in this order:
+
 ```bash
-# Run training scripts
-python train_with_real_data.py     # Train on real ICU data
-python evaluate_models.py           # Evaluate model performance
+# 1. Install (Python 3.12; macOS also needs `brew install libomp` for xgboost)
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Data: Dataset.csv (PhysioNet 2019-style, 14,057 patients, 546,123 rows, ~98 MB) is not tracked.
+#    It is still in git history:
+git show efe9c54:Dataset.csv > Dataset.csv
+python scripts/test_setup.py                 # imports, library pins, data and split files
+
+# 3. Models: baselines + deep models, one leakage-safe protocol (~1-2 h on CPU, cached in outputs/final_run/)
+python scripts/final_evaluation.py --horizons 3 6 12 --sanity
+
+# 4. Surveillance layer (see surveillance/README.md for the real viral series and the sweep)
+python -m surveillance.run_surveillance --data Dataset.csv --out outputs/surveillance
 ```
+
+The patient split is fixed in `outputs/cache/patient_splits_seed42.json` (committed). `train_models.py`
+and `train_baseline_models.py` train the dashboard's legacy checkpoints; they are not the reported results.
 
 ## Setup Instructions
 
@@ -111,7 +127,7 @@ jupyter notebook notebooks/
 ├── predict_new_data.py         # CLI prediction
 ├── train_models.py             # Deep learning training
 ├── train_baseline_models.py    # Baseline model training
-├── Dataset.csv                # ICU patient data
+├── Dataset.csv                # ICU patient data (not tracked, see "Reproduce the paper results")
 ├── requirements.txt           # Python dependencies
 └── README.md                 # This file
 ```
