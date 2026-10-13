@@ -4,6 +4,11 @@ Paragraph numbers are positions in the `.docx` body (insertions included, deleti
 Note: `514_Manuscript_revised_tracked.pdf` shows the **original** text (placeholder Table 2, old [9]/[10], old
 author order, no surveillance section); it is not a render of the tracked `.docx`. Review the `.docx`.
 
+> **File names (renamed 2026-10-13 to match the manuscript's final figure numbers):** the new Figures 2 and 3 are
+> `outputs/figures/figure2_risk_trajectory.png` and `figure3_shap_xgboost.png` (were figure5_/figure6_), the data-flow
+> diagram is `figure4_dataflow.png` (was figure7_). "Figure 5/6" in the text below refers to the *old* placeholder
+> numbering.
+
 ## Verified correct
 - **Table 2** equals `outputs/results/final_results_summary.csv` (mean +/- std over seeds, H = 6 h, all 12 rows).
 - **Table 3** equals `outputs/surveillance/leakage_safe/grud_real_viral/surveillance_results.json` (retrained,
@@ -16,8 +21,8 @@ author order, no surveillance section); it is not a render of the tracked `.docx
 
 ## Still wrong (fix before submission)
 1. **Figures 5 and 6 and paragraphs 290-303 are the old placeholders.** Fig. 5 is `0.3 + sin + Gaussian noise`;
-   Fig. 6 is a deviation-from-reference heuristic, not SHAP. Replace with `outputs/figures/figure5_risk_trajectory.png`
-   and `figure6_shap_xgboost.png` (`scripts/make_figures_5_6.py`) and rewrite 293-303. Suggested text:
+   Fig. 6 is a deviation-from-reference heuristic, not SHAP. Replace with `outputs/figures/figure2_risk_trajectory.png`
+   and `figure3_shap_xgboost.png` (`scripts/make_figures_2_3.py`) and rewrite 293-303. Suggested text:
    - Fig. 5 caption: "Hour-by-hour risk from the Digital Twin (average of four deep sequence models, three seeds each)
      for two held-out test patients: a septic patient over the 24 hours before labelled onset (left) and a non-septic
      patient over the last 24 hours of the stay (right). The patients were chosen by a fixed rule (septic patient with
@@ -81,7 +86,7 @@ Lead time before onset, calibration quality beyond a 2-3% Brier skill, external 
 
 ## Must fix
 1. **Figures 5 and 6 (page 7) are still the placeholder images and captions.** Replace with
-   `outputs/figures/figure5_risk_trajectory.png` / `figure6_shap_xgboost.png` and the text in Round 1, item 1.
+   `outputs/figures/figure2_risk_trajectory.png` / `figure3_shap_xgboost.png` and the text in Round 1, item 1.
    Figure numbers now jump 1 -> 5 (old 2-4 were removed): renumber 5-8 to 2-5 and fix the in-text references.
 2. **Real-time / SHAP / outcome claims remain**: abstract ("real-time visualization"), Introduction ("real-time
    visualization ... improving clinical decision-making and patient outcomes [9], [11], [13]"), Digital Twin

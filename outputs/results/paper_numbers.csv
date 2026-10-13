@@ -1,0 +1,50 @@
+key,value,note
+dataset_icu_stays,14057.0,distinct Patient_ID
+dataset_hourly_records,546123.0,
+share_records_positive_label,0.021698408600260382,rows with SepsisLabel = 1
+share_patients_ever_positive,0.0881411396457281,
+missing_cells_in_model_columns,0.0,44 model input columns
+labs_share_of_patients_first_row_equals_global_median_mean,0.8973805407177611,mean over 23 lab columns
+Platelets_P_next_hour_equal_given_real_value,0.0024271844660194173,carry-forward would make this large; here it is small
+Creatinine_P_next_hour_equal_given_real_value,0.0035423092191651144,carry-forward would make this large; here it is small
+Lactate_P_next_hour_equal_given_real_value,0.19561232990835878,carry-forward would make this large; here it is small
+platelets_share_of_hours_equal_median,0.9351208427405547,
+test_patients,2092.0,
+test_hours,80098.0,
+test_positive_hours_h6,860.0,
+test_positive_patients_h6,155.0,patients contributing >= 1 positive hour
+test_prevalence_h6,0.010736847361981572,
+patients_excluded_positive_from_first_hour,137.0,no pre-onset hours to predict from
+indicator_only_xgboost_auroc_h6,0.581273754605642,33 vital/lab measurement indicators only
+indicator_only_xgboost_auprc_h6,0.01620944622923915,
+measurement_count_6h_xgboost_auroc_h6,0.6017725228146937,
+models_auroc_min_h6,0.6963472056806196,"eleven models, mean over seeds"
+models_auroc_max_h6,0.7874509083712282,
+auprc_over_chance_min_h6,3.9268044773803648,AUPRC divided by prevalence
+auprc_over_chance_max_h6,5.880989434929939,
+precision_at_f1_threshold_min_h6,0.0864044595850108,
+precision_at_f1_threshold_max_h6,0.1077050538525269,
+brier_skill_min_h6,0.024736829835002683,relative to predicting the base rate
+brier_skill_max_h6,0.029655081785307562,
+repro_transformer_h6_abs_diff_of_seed_means,0.004616109919854949,
+repro_transformer_h6_seed_sd_ours,0.005510682709564549,
+repro_transformer_h12_abs_diff_of_seed_means,0.002082536700874993,
+repro_transformer_h12_seed_sd_ours,0.020920483037375395,
+repro_cnn_lstm_h6_abs_diff_of_seed_means,0.0011947887934906642,
+repro_cnn_lstm_h6_seed_sd_ours,0.010497997744114333,
+repro_cnn_lstm_h12_abs_diff_of_seed_means,0.000389777856046547,
+repro_cnn_lstm_h12_seed_sd_ours,0.008356720903718692,
+repro_ann_h6_abs_diff_of_seed_means,0.00034702880205284004,
+repro_ann_h6_seed_sd_ours,0.02413370490724379,
+repro_ann_h12_abs_diff_of_seed_means,0.01829768846306634,
+repro_ann_h12_seed_sd_ours,0.005859351423473941,
+repro_lstm_h6_abs_diff_of_seed_means,6.349236164393535e-05,
+repro_lstm_h6_seed_sd_ours,0.012435475171111628,
+repro_lstm_h12_abs_diff_of_seed_means,3.75004036712312e-08,
+repro_lstm_h12_seed_sd_ours,0.012328158768516149,
+repro_max_abs_auroc_diff_exact_models,4.017900390174134e-08,"time-only, LR, DT, KNN, RF, XGBoost, HistGB, GRU-D, all horizons and seeds"
+fig2_septic_first_risk,0.0280063937053487,
+fig2_septic_last_risk,0.0692533401178168,
+fig2_high_threshold,0.03211796656250954,
+fig2_hours_before_onset_first_at_or_above_high,20.0,first hour from which the septic patient's risk is at or above High (hours before labelled onset)
+fig2_nonseptic_max_risk,0.0295417977527878,

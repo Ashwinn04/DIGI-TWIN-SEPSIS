@@ -120,10 +120,10 @@ Also added: committed patient split (`outputs/cache/patient_splits_seed42.json`)
    `generate_risk_trajectory` (`0.3 + sin(0.1 i)*0.1 + Gaussian noise`, no patient data, no model) and
    `generate_feature_importance` (`|value - reference| / reference` for 8 fixed features; not SHAP). The text and
    captions ("the model's predicted probability of sepsis at that hour", "SHAP summary ... top drivers across models")
-   are therefore false and must be replaced. Real replacements: `scripts/make_figures_5_6.py` ->
-   `outputs/figures/figure5_risk_trajectory.png` (two held-out patients chosen by a fixed rule; hour-by-hour calibrated
-   digital-twin ensemble) and `figure6_shap_xgboost.png` (exact TreeSHAP of the XGBoost model, test pre-onset hours),
-   with the numbers in `outputs/results/figure5_trajectory.csv` and `figure6_shap_mean_abs.csv`.
+   are therefore false and must be replaced. Real replacements: `scripts/make_figures_2_3.py` (manuscript Figures 2 and 3; renamed
+   from 5 and 6) -> `outputs/figures/figure2_risk_trajectory.png` (two held-out patients chosen by a fixed rule; hour-by-hour calibrated
+   digital-twin ensemble) and `figure3_shap_xgboost.png` (exact TreeSHAP of the XGBoost model, test pre-onset hours),
+   with the numbers in `outputs/results/figure2_trajectory.csv` and `figure3_shap_mean_abs.csv`.
    **The real SHAP result contradicts the draft text:** top features are ICULOS (hour in ICU, 0.74), HospAdmTime (0.32),
    Unit1, Age, MAP_rolling_mean_6hr, then HR, Resp; lactate and WBC are not in the top ten. Time in ICU dominates,
    consistent with the time-only baseline (AUROC 0.67). Say "SHAP for the XGBoost model", not "across models".

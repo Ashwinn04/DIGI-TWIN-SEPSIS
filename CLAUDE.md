@@ -40,6 +40,10 @@ Datasets (`*.csv`) and `*.pkl` are gitignored, so training data and the baseline
 - **`scripts/`** — helpers run from the project root (they use cwd-relative `outputs/...` paths); `scripts/docs/` has the markdown→HTML/PDF converters writing to `docs/`.
 - **`outputs/`** — checkpoints, scalers/imputers, `thresholds.json`, `config.json`, `feature_list.json`, metrics and results CSVs consumed at runtime. Several `.pt` checkpoints are committed to git. `*_demo_model.pt` are placeholder checkpoints, not trained models (only `scripts/evaluate_accuracy.py` reads them).
 
+## Paper
+
+`paper/` holds the accepted-changes manuscript and `paper/README.md`, the map from every table, figure and quoted number to its source file and the script that makes it. Manuscript figure files are named by the final figure numbers (`figure2_*`, `figure3_*`, `figure4_*`); `scripts/paper_numbers.py` computes the numbers that no other results file stores.
+
 ## Gotchas
 
 - **Two model sets.** `integration_real.py` serves the `protocol` set by default: the models behind `final_results.csv`, loaded from `outputs/deployed/protocol_H6` via `explainability_utils/deploy.py` (falls back to `legacy` if the bundle is missing). `SEPSIS_MODEL_SET=legacy` serves the older committed checkpoints (trained before the final evaluation, 24-step window, old label definition). Protocol scores are calibrated probabilities near the ~1% base rate; levels use validation operating points (Medium = 80% specificity, High = 95%), not 0.3/0.7. `api_service.py` now calls the same system (it used to return `np.random.uniform` scores; `outputs/prediction_log.jsonl` still contains those fake entries).
