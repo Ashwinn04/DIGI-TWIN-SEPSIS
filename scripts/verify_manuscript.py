@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Step 8 cross-check: every table cell and quoted number in the manuscript against the result files.
 
-    python scripts/verify_manuscript.py [paper/514_Manuscript_submission_copy.docx]
+    python scripts/verify_manuscript.py [paper/514_Manuscript_final.docx]
 
 Exit status is non-zero if any check fails. Expected values are computed from the CSV/JSON files named in
 paper/README.md, formatted the way the text prints them, and looked up in the manuscript.
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "outputs" / "results"
 SURV = ROOT / "outputs" / "surveillance" / "leakage_safe"
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "paper" / "514_Manuscript_submission_copy.docx"
+path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "paper" / "514_Manuscript_final.docx"
 
 root = ET.fromstring(zipfile.ZipFile(path).read("word/document.xml"))
 paras = ["".join((e.text or "") for e in p.iter() if e.tag == W + "t") for p in root.iter(W + "p")]

@@ -42,7 +42,7 @@ Datasets (`*.csv`) and `*.pkl` are gitignored, so training data and the baseline
 
 ## Paper
 
-`paper/` holds the accepted-changes manuscript and `paper/README.md`, the map from every table, figure and quoted number to its source file and the script that makes it. Manuscript figure files are named by the final figure numbers (`figure2_*`, `figure3_*`, `figure4_*`); `scripts/paper_numbers.py` computes the numbers that no other results file stores; `scripts/make_submission_copy.py` builds the submission docx and `scripts/verify_manuscript.py` checks every table cell and quoted number against the result files.
+`paper/` holds the final manuscript (`paper/514_Manuscript_final.docx`) and `paper/README.md`, the map from every table, figure and quoted number to its source file and the script that makes it. Manuscript figure files are named by the final figure numbers (`figure2_*`, `figure3_*`, `figure4_*`); `scripts/paper_numbers.py` computes the numbers that no other results file stores; `scripts/make_submission_copy.py` builds the submission docx and `scripts/verify_manuscript.py` checks every table cell and quoted number against the result files.
 
 ## Gotchas
 

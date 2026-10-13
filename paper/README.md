@@ -1,6 +1,6 @@
 # Paper 514: manuscript and where every number comes from
 
-`514_Manuscript_submission_copy.docx` is the final manuscript (the only version kept in the working tree). It has no
+`514_Manuscript_final.docx` is the final manuscript (the only version kept in the working tree). It has no
 tracked changes, comments or placeholders and is the file `scripts/verify_manuscript.py` checks (71 checks).
 
 Provenance: it was built by `scripts/make_submission_copy.py` from the authors' final-round tracked edits
