@@ -106,3 +106,41 @@ Also added: committed patient split (`outputs/cache/patient_splits_seed42.json`)
   before the split, that is a (small) leakage path we cannot rule out from here.
 - **Still open:** chapter review against the tables (waiting for the draft); suppression normalisation and a
   geographic-localisation metric in `surveillance/`.
+
+## 9. Answers to Anjith's "Need from you" (Ashwin, 2026-10-13)
+1. **[9]/[10] references.** Checked against the tracked manuscript's own sentences. [10] Tang, Zhang & Li (BMC Med Res
+   Methodol 2024, transformer for early sepsis prediction) fits the sentence it supports ("Transformer-based models ...
+   self-attention ... [6], [7], [10]"). [9] Fabrizzio et al. (Rev Bras Enferm 2023, web app predicting ICU
+   hospitalisation for COVID-19) fits only loosely: it is cited for "clinician-facing ... alerts ... improving clinical
+   decision-making and patient outcomes [9],[11],[13]" and for the Digital Twin dashboard sentence [3],[9],[11],[14].
+   It is a COVID web app, not sepsis or a digital twin, and a patient-outcomes claim needs outcome evidence. Soften
+   those two sentences or cite [9] only for "a web application for ICU risk prediction". I could not open either paper
+   from here: confirm both on the publisher/DOI before accepting.
+2. **Figures 5 and 6 were dashboard placeholders, not results.** Both are screenshots (dated 31 Oct - 1 Nov 2025) of
+   `generate_risk_trajectory` (`0.3 + sin(0.1 i)*0.1 + Gaussian noise`, no patient data, no model) and
+   `generate_feature_importance` (`|value - reference| / reference` for 8 fixed features; not SHAP). The text and
+   captions ("the model's predicted probability of sepsis at that hour", "SHAP summary ... top drivers across models")
+   are therefore false and must be replaced. Real replacements: `scripts/make_figures_5_6.py` ->
+   `outputs/figures/figure5_risk_trajectory.png` (two held-out patients chosen by a fixed rule; hour-by-hour calibrated
+   digital-twin ensemble) and `figure6_shap_xgboost.png` (exact TreeSHAP of the XGBoost model, test pre-onset hours),
+   with the numbers in `outputs/results/figure5_trajectory.csv` and `figure6_shap_mean_abs.csv`.
+   **The real SHAP result contradicts the draft text:** top features are ICULOS (hour in ICU, 0.74), HospAdmTime (0.32),
+   Unit1, Age, MAP_rolling_mean_6hr, then HR, Resp; lactate and WBC are not in the top ten. Time in ICU dominates,
+   consistent with the time-only baseline (AUROC 0.67). Say "SHAP for the XGBoost model", not "across models".
+3. **How `Dataset.csv` was imputed** (answers your open question). Every missing hour holds the **dataset-wide median**
+   of its column, with no carry-forward and no backfill: real values are isolated single hours (platelets: mean run of
+   identical non-median values 1.00 h; creatinine repeats with probability 0.004), and 87-100% of patients show one
+   identical value (= the global median) in their first and last rows (TroponinI 4.75 for 100%). So there is **no
+   future-value leakage** from backfill. Two consequences: (a) the median was computed on the whole dataset before
+   the split (one scalar per column, negligible but a pre-split statistic); (b) "value != median" is a *measurement
+   indicator*. Measurement indicators alone give XGBoost AUROC 0.58 (6-h measurement counts 0.60) against 0.78 with
+   values and 0.67 for time-only, and pre-onset hours have more labs measured (1.10 vs 0.86 per hour): informative
+   missingness exists but is a small part of the skill. GRU-D's missing-data handling is not exercised on this file.
+4. **`check_deployment`.** Runs from a fresh clone now (`git pull`, then `python scripts/check_deployment.py`); no cache or
+   RF pickle needed (it skips baselines whose pickle is absent).
+5. **RF pickle / pip freeze.** The RF pickle (20 MB) is local-only (`*.pkl` gitignored) and is not needed for the check
+   above. Environment on this machine: Python 3.13, scikit-learn 1.7.2, xgboost 2.1.4, torch 2.14.1 (see `requirements.txt`).
+6. **Dashboard.** The remaining placeholders are gone too: the risk trajectory is now hour-by-hour model output (empty for
+   a single manual entry), alert persistence and chart thresholds use the score's own operating points, the ensemble
+   level comes from the system, and the "Top Contributing Features" chart is labelled as deviation from reference range.
+   Fixed a regression: with calibrated scores near 0.03, the old fixed 0.3/0.7 cut-offs would have shown "Low" for everyone.

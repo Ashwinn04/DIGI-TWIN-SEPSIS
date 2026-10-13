@@ -20,6 +20,27 @@ project_root = str(Path(__file__).resolve().parent)
 sys.path.append(project_root)
 from integration_real import get_integration_system, DEFAULT_MODEL_SET
 
+def _protocol_system():
+    """The integration system if it serves the evaluated (protocol) models, else None."""
+    try:
+        system = get_integration_system()
+        if getattr(system, 'model_set', 'legacy') == 'protocol' and getattr(system, 'protocol_bundle', None) is not None:
+            return system
+    except Exception:
+        pass
+    return None
+
+
+def _operating_points():
+    """(medium, high) thresholds for the score being displayed: validation operating points in protocol mode,
+    the legacy fixed 0.3/0.7 otherwise."""
+    system = _protocol_system()
+    if system is not None:
+        spec = system.protocol_bundle.cal['ensemble_dl']
+        return float(spec['threshold_medium']), float(spec['threshold_high'])
+    return 0.3, 0.7
+
+
 # Page configuration
 st.set_page_config(
     page_title="Sepsis Digital Twin Dashboard - Real Data",
@@ -144,6 +165,15 @@ def generate_patient_data(df, patient_id):
     # Calculate ensemble prediction
     ensemble_score = np.mean([pred['risk_score'] for pred in model_preds_only.values()]) if model_preds_only else 0.5
     ensemble_level = 'High' if ensemble_score > 0.7 else 'Medium' if ensemble_score > 0.3 else 'Low'
+    agreement_value = 0.85
+    _ps = _protocol_system()
+    if _ps is not None:        # calibrated scores: use the system's own ensemble and operating points
+        try:
+            _ens = _ps.get_comprehensive_prediction(latest_record.to_dict())['ensemble_prediction']
+            ensemble_score, ensemble_level = _ens['average_risk_score'], _ens['risk_level']
+            agreement_value = _ens['agreement_score']
+        except Exception as e:
+            print(f"Protocol ensemble unavailable: {e}")
     
     return {
         'patient_id': patient_id,
@@ -172,7 +202,7 @@ def generate_patient_data(df, patient_id):
         'ensemble_prediction': {
             'average_risk_score': float(ensemble_score),
             'risk_level': ensemble_level,
-            'agreement_score': 0.85,  # Placeholder
+            'agreement_score': agreement_value,
             'recommended_action': get_recommendation(ensemble_level)
         },
         'risk_trajectory': risk_trajectory,
@@ -231,23 +261,30 @@ def generate_sample_patient_data(patient_id):
     }
 
 def generate_risk_trajectory(patient_data):
-    """Generate risk trajectory from patient data"""
-    trajectory = []
-    base_risk = 0.3
-    
-    for i in range(24):
-        # Add some trend and noise
-        trend = np.sin(i * 0.1) * 0.1
-        noise = np.random.normal(0, 0.05)
-        risk = base_risk + trend + noise
-        risk = np.clip(risk, 0, 1)
-        
-        trajectory.append({
-            'timestamp': (datetime.now() - timedelta(hours=23-i)).isoformat(),
-            'risk_score': min(risk, 1.0)
-        })
-    
-    return trajectory
+    """Hour-by-hour risk from the loaded models for the last (up to) 24 hours of this patient's history.
+    Each point scores the history available at that hour. Never simulated: with no history, returns []."""
+    try:
+        system = get_integration_system()
+        hist = patient_data.reset_index(drop=True)
+        n = len(hist)
+        trajectory = []
+        for end in range(max(1, n - 23), n + 1):
+            window = hist.iloc[max(0, end - 24):end]
+            ps = _protocol_system()
+            if ps is not None:
+                score = ps.protocol_bundle.predict_ensemble(window)['risk_score']
+            else:
+                preds = system.predict_deep_learning_models(window)
+                vals = [p['risk_score'] for p in preds.values() if isinstance(p, dict) and 'risk_score' in p]
+                if not vals:
+                    return []
+                score = float(np.mean(vals))
+            trajectory.append({'timestamp': (datetime.now() - timedelta(hours=n - end)).isoformat(),
+                               'risk_score': float(min(max(score, 0.0), 1.0))})
+        return trajectory
+    except Exception as e:
+        print(f"Risk trajectory unavailable: {e}")
+        return []
 
 def generate_model_predictions(record):
     """Generate model predictions based on patient data"""
@@ -271,21 +308,8 @@ def generate_model_predictions(record):
     }
 
 def generate_sample_trajectory(base_risk):
-    """Generate sample risk trajectory"""
-    trajectory = []
-    for i in range(24):
-        # Add some trend and noise
-        trend = np.sin(i * 0.1) * 0.1
-        noise = np.random.normal(0, 0.05)
-        risk = base_risk + trend + noise
-        risk = np.clip(risk, 0, 1)
-        
-        trajectory.append({
-            'timestamp': (datetime.now() - timedelta(hours=23-i)).isoformat(),
-            'risk_score': risk
-        })
-    
-    return trajectory
+    """A single manually entered snapshot has no history, so there is no trajectory (previously random noise)."""
+    return []
 
 def generate_feature_importance(record):
     """Generate feature importance based on patient data"""
@@ -536,8 +560,9 @@ def get_recommendation(risk_level):
 def check_alert_persistence(risk_trajectory):
     """Check if high risk persists for >2 hours"""
     high_risk_hours = 0
+    _, high_thr = _operating_points()
     for point in risk_trajectory[-6:]:  # Last 6 hours
-        if point['risk_score'] > 0.7:
+        if point['risk_score'] >= high_thr:
             high_risk_hours += 1
     
     if high_risk_hours >= 2:
@@ -780,6 +805,10 @@ def show_risk_trajectory(risk_data):
     st.header("📈 Risk Trajectory")
     
     trajectory = risk_data['risk_trajectory']
+    if not trajectory:
+        st.info("No hourly history for this patient (a single manual entry has none), so no trajectory is shown.")
+        return
+    med_thr, high_thr = _operating_points()
     
     # Create trajectory plot
     timestamps = [datetime.fromisoformat(point['timestamp'].replace('Z', '+00:00')) for point in trajectory]
@@ -797,9 +826,9 @@ def show_risk_trajectory(risk_data):
     ))
     
     # Add threshold lines
-    fig.add_hline(y=0.7, line_dash="dash", line_color="red", 
+    fig.add_hline(y=high_thr, line_dash="dash", line_color="red", 
                   annotation_text="High Risk Threshold")
-    fig.add_hline(y=0.3, line_dash="dash", line_color="orange", 
+    fig.add_hline(y=med_thr, line_dash="dash", line_color="orange", 
                   annotation_text="Medium Risk Threshold")
     
     fig.update_layout(
@@ -846,7 +875,7 @@ def show_explainability(risk_data):
         x=importances,
         y=features,
         orientation='h',
-        title="Top Contributing Features",
+        title="Largest deviations from reference range (descriptive, not a model attribution)",
         color=importances,
         color_continuous_scale='Reds'
     )
@@ -2024,6 +2053,13 @@ def generate_patient_data_from_dict(patient_dict):
             ensemble_level = 'Medium'
         else:
             ensemble_level = 'Low'
+        _ps = _protocol_system()
+        if _ps is not None:    # calibrated scores live on a different scale from the clinical-score risk
+            try:
+                _ens = _ps.get_comprehensive_prediction(patient_dict)['ensemble_prediction']
+                final_risk_score, ensemble_level = _ens['average_risk_score'], _ens['risk_level']
+            except Exception as e:
+                print(f"Protocol ensemble unavailable (manual path): {e}")
         
         # Generate risk trajectory (simulate last 24 hours)
         risk_trajectory = generate_sample_trajectory(final_risk_score)
