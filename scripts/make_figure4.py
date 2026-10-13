@@ -1,6 +1,6 @@
 """Figure 7 of Paper 514: data flow of the multi-site surveillance layer.
 
-    python scripts/make_figure7.py            # -> outputs/figures/figure7_dataflow.png
+    python scripts/make_figure4.py            # -> outputs/figures/figure4_dataflow.png
 """
 import sys
 from pathlib import Path
@@ -73,6 +73,6 @@ arrow((DX + DW, AY + AH / 2), (LX, AY + AH / 2))
 text(73.5, 7.5, "Released per site per day: admissions, high-risk alerts, viral positives.\n"
                 "No patient record leaves a hospital.", color=QUIET)
 
-out = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parent.parent / "outputs" / "figures" / "figure7_dataflow.png")
+out = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parent.parent / "outputs" / "figures" / "figure4_dataflow.png")
 fig.savefig(out, dpi=300, bbox_inches="tight", pad_inches=0.04, facecolor="white")
 print("saved", out)

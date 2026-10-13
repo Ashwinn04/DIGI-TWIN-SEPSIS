@@ -141,3 +141,12 @@ Real viral series with GRU-D scores: combined EWMA 1.00 / 5 / 1.44, viral signal
 0.77 / 17 / 2.16 (`outputs/surveillance/leakage_safe/grud_real_viral/`). Sensitivity sweep:
 `outputs/surveillance/leakage_safe/grud_sweep/` (the k=10 suppression artefact described above is unchanged).
 GRU-D scores come from the batch-independent GRU-D (see `models/grud.py`); results before that fix are not comparable.
+
+## Why k = 10 raises false alarms (tested, 13 Oct 2026)
+The earlier explanation was that the pooled viral count is a *sum* over whichever sites pass suppression, so it moves
+with the number of reporting sites. `--normalize-viral` (viral count per reporting site; default off, so existing
+results are unchanged) tests that: the k = 10 false alarms stay high (combined 2.69 -> 2.84, viral 3.87 -> 3.98;
+`outputs/surveillance/leakage_safe/grud_sweep_normalised/`). The cause is sparse reporting: with about 8 admissions
+per site-day, k = 10 suppresses about two thirds of site-days, so a region has no report on about a third of days
+and on average one of its three sites reporting; the evaluation forward-fills the gaps. Numbers:
+`outputs/results/paper_numbers.csv` (`share_site_days_below_k*`, `region_days_with_no_report_k*`, `normalised_*`).

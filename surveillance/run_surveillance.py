@@ -29,7 +29,7 @@ def prepare_real_viral(csv_path, start_epiweek=DEFAULT_START_EPIWEEK):
     return {"path": csv_path, "start_epiweek": start_epiweek, "onsets": onsets}
 
 
-def run_replicate(pt, sites, seed, k, eps, intensity, multiplier, real=None):
+def run_replicate(pt, sites, seed, k, eps, intensity, multiplier, real=None, normalize_viral=False):
     """real=None: simulated viral counts and random outbreak start (original behaviour).
     real=prepare_real_viral(...): real viral series; outbreak starts where it begins to rise."""
     rng = np.random.default_rng(seed)
@@ -43,7 +43,7 @@ def run_replicate(pt, sites, seed, k, eps, intensity, multiplier, real=None):
         viral = load_viral(real["path"], REGION_MAP, N_DAYS, sites, rng=rng, base_days=BASE_DAYS,
                            start_epiweek=real["start_epiweek"])
     reports = site_daily_reports(p, viral, N_DAYS, k=k, epsilon=eps, rng=rng)
-    reg = central_region_series(reports)
+    reg = central_region_series(reports, normalize_viral)
     return reports, reg, region, window
 
 
@@ -129,6 +129,9 @@ def main():
     ap.add_argument("--viral-multiplier", type=float, default=3.0)
     ap.add_argument("--viral-csv", default=None,
                     help="real weekly viral series from scripts/fetch_viral.py (default: simulated counts)")
+    ap.add_argument("--normalize-viral", action="store_true",
+                    help="use the viral count per reporting site (default: sum over reporting sites, which "
+                         "varies with how many sites pass suppression)")
     ap.add_argument("--risk-source", default="legacy",
                     help="legacy = original gradient-boosting scores (all hours); or a project model "
                          "(grud, lstm, cnn_lstm, transformer, xgboost, ...) scored leakage-safe: "
@@ -155,7 +158,7 @@ def main():
         rows, fig_done = [], False
         for s in range(a.replicates):
             reports, reg, region, window = run_replicate(
-                pt, sites, s, a.k, a.epsilon, a.intensity, a.viral_multiplier, real)
+                pt, sites, s, a.k, a.epsilon, a.intensity, a.viral_multiplier, real, a.normalize_viral)
             ev, series = evaluate(reg, reports, region, window, det, real and real["onsets"])
             rows.append(ev)
             if s == 0:
@@ -169,7 +172,8 @@ def main():
                       "outbreak_intensity": a.intensity, "viral_multiplier": a.viral_multiplier,
                       **({"viral_source": "CDC FluView ILINet (real)", "viral_start_epiweek": a.viral_start,
                           "detected_onsets": real["onsets"]} if real else {}),
-                      **({"risk_source": a.risk_source} if a.risk_source != "legacy" else {})},
+                      **({"risk_source": a.risk_source} if a.risk_source != "legacy" else {}),
+                      **({"normalize_viral": True} if a.normalize_viral else {})},
            "detection": results,
            "disclaimer": ("Hospital network, admission dates and the sepsis-alert surge are simulated; "
                           "the viral series is real CDC FluView data." if real else

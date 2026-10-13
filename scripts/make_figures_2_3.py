@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Real replacements for manuscript Figures 5 and 6 (the originals were dashboard placeholders).
+"""Manuscript Figures 2 and 3 (they replace the original Figures 5 and 6, which were dashboard placeholders).
 
-    python scripts/make_figures_5_6.py
+    python scripts/make_figures_2_3.py
 
-Figure 5  Hour-by-hour risk from the evaluated models for two held-out test patients chosen by a fixed rule
+Figure 2  Hour-by-hour risk from the evaluated models for two held-out test patients chosen by a fixed rule
           (not by how good they look): the septic patient whose onset hour is closest to the median onset
           among test septics, and the non-septic patient whose stay length is closest to that one.
           Score = calibrated seed/model-averaged probability of onset within 6 h (explainability_utils.deploy).
-Figure 6  Mean |TreeSHAP| of the XGBoost model (xgboost's own exact TreeSHAP via pred_contribs) over held-out
+Figure 3  Mean |TreeSHAP| of the XGBoost model (xgboost's own exact TreeSHAP via pred_contribs) over held-out
           test pre-onset hours: all positives plus a seeded sample of negatives. It explains ONE model
           (XGBoost), not "all models".
-Writes outputs/figures/figure5_risk_trajectory.png, figure6_shap_xgboost.png and the CSVs behind them
-(outputs/results/figure5_trajectory.csv, figure6_shap_mean_abs.csv).
+Writes outputs/figures/figure2_risk_trajectory.png, figure3_shap_xgboost.png and the CSVs behind them
+(outputs/results/figure2_trajectory.csv, figure3_shap_mean_abs.csv).
 """
 import json, os, sys
 from pathlib import Path
@@ -69,12 +69,12 @@ def main():
     n_len = int((d["pid"] == n_id).sum())
     spec = b.cal["ensemble_dl"]
 
-    # ---------------- Figure 5
+    # ---------------- Figure 2
     ts = trajectory(b, d, s_id, onset_pos - 1)                 # last pre-onset hour
     tn = trajectory(b, d, n_id, n_len - 1)
     rows = ([dict(patient=s_id, group="septic", hour=t, hours_to_onset=t - onset_pos, risk=r) for t, r in ts] +
             [dict(patient=n_id, group="non-septic", hour=t, hours_to_onset=np.nan, risk=r) for t, r in tn])
-    pd.DataFrame(rows).to_csv(OUT_RES / "figure5_trajectory.csv", index=False)
+    pd.DataFrame(rows).to_csv(OUT_RES / "figure2_trajectory.csv", index=False)
     fig, ax = plt.subplots(1, 2, figsize=(11, 3.8), sharey=True)
     for a, data, title, xlab in [
             (ax[0], ts, f"Septic test patient {s_id}: 24 h before labelled onset", "hours relative to labelled onset"),
@@ -89,10 +89,10 @@ def main():
     ax[0].legend(fontsize=8, loc="upper left")
     fig.suptitle("Digital-twin risk trajectory (average of four deep models, 3 seeds each)", fontsize=10)
     fig.tight_layout()
-    fig.savefig(OUT_FIG / "figure5_risk_trajectory.png", dpi=170)
+    fig.savefig(OUT_FIG / "figure2_risk_trajectory.png", dpi=170)
     plt.close(fig)
 
-    # ---------------- Figure 6: exact TreeSHAP of XGBoost on held-out pre-onset hours
+    # ---------------- Figure 3: exact TreeSHAP of XGBoost on held-out pre-onset hours
     import xgboost as xgb
     r_te, y_te = make_samples(d, H, "test")
     rng = np.random.default_rng(0)
@@ -105,14 +105,14 @@ def main():
     mean_signed_pos = contrib[np.array([k < int(y_te.sum()) for k in range(len(keep))])].mean(0)
     imp = pd.DataFrame({"feature": feats, "mean_abs_shap": mean_abs, "mean_shap_on_pre_onset_hours": mean_signed_pos}
                        ).sort_values("mean_abs_shap", ascending=False)
-    imp.to_csv(OUT_RES / "figure6_shap_mean_abs.csv", index=False)
+    imp.to_csv(OUT_RES / "figure3_shap_mean_abs.csv", index=False)
     top = imp.head(10).iloc[::-1]
     fig, ax = plt.subplots(figsize=(7, 4.2))
     ax.barh(top.feature, top.mean_abs_shap, color="#1f77b4")
     ax.set(xlabel="mean |SHAP| (log-odds), held-out pre-onset hours",
            title="XGBoost: top 10 features by TreeSHAP importance")
     fig.tight_layout()
-    fig.savefig(OUT_FIG / "figure6_shap_xgboost.png", dpi=170)
+    fig.savefig(OUT_FIG / "figure3_shap_xgboost.png", dpi=170)
     plt.close(fig)
     print(f"septic patient {s_id} (onset hour {onset_pos}), non-septic patient {n_id} (length {n_len})")
     print("trajectory (septic) risk first/last:", round(ts[0][1], 4), round(ts[-1][1], 4),

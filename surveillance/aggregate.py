@@ -23,9 +23,17 @@ def site_daily_reports(p, viral, n_days, k=3, epsilon=1.0, rng=None):
     return g
 
 
-def central_region_series(reports):
+def central_region_series(reports, normalize_viral=False):
+    """Sum the reported site-days per region and day.
+
+    normalize_viral=False (default): viral_cases is the SUM over reporting sites, so it moves with the number of
+    sites that pass small-cell suppression (this inflates false alarms at large k).
+    normalize_viral=True: viral_cases is the MEAN per reporting site, which removes that dependence.
+    """
     r = reports[reports.reported].groupby(["region", "day"]).agg(
         admissions=("admissions", "sum"), alerts=("alerts", "sum"),
         viral_cases=("viral_cases", "sum"), sites_reporting=("site", "nunique")).reset_index()
+    if normalize_viral:
+        r["viral_cases"] = r.viral_cases / r.sites_reporting.clip(lower=1)
     r["alert_rate"] = r.alerts / r.admissions.clip(lower=1)
     return r

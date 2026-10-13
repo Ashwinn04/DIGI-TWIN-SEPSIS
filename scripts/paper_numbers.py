@@ -21,6 +21,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from explainability_utils.protocol import build_data, fit_baseline, make_samples, subsample
 
 RES = ROOT / "outputs" / "results"
+SURV = ROOT / "outputs" / "surveillance" / "leakage_safe"
 rows = []
 
 
@@ -135,6 +136,34 @@ def main():
     add("fig2_hours_before_onset_first_at_or_above_high", -above.hours_to_onset.iloc[0] if len(above) else np.nan,
         "first hour from which the septic patient's risk is at or above High (hours before labelled onset)")
     add("fig2_nonseptic_max_risk", non.risk.max())
+
+    # ---- why k = 10 raises false alarms (surveillance): sparse, intermittent reporting
+    from scipy.stats import poisson
+    from surveillance.risk_protocol import patient_risk_scores_protocol
+    from surveillance.run_surveillance import BASE_DAYS, N_DAYS, run_replicate
+    from surveillance.simulate import build_network
+    pt, _ = patient_risk_scores_protocol(str(csv), "grud", cache_dir=str(ROOT / "outputs" / "final_run"), verbose=False)
+    pt["flag"] = pt.max_risk >= pt.max_risk.quantile(0.75)
+    sites = build_network()
+    per_site_day = len(pt) / (len(sites) * N_DAYS)
+    add("patients_per_site_day", per_site_day)
+    for k in (3, 10):
+        add(f"share_site_days_below_k{k}", poisson.cdf(k - 1, per_site_day), "Poisson approximation")
+        miss, nrep = [], []
+        for seed in range(12):
+            _, reg, _, _ = run_replicate(pt, sites, seed, k, 1.0, 0.6, 3.0)
+            wide = reg.set_index(["region", "day"]).sites_reporting.unstack(0).reindex(range(N_DAYS)).iloc[BASE_DAYS:]
+            miss.append(wide.isna().mean().mean())
+            nrep.append(wide.fillna(0).mean().mean())
+        add(f"region_days_with_no_report_k{k}", np.mean(miss), "post-baseline, 12 replicates, 3 sites per region")
+        add(f"mean_sites_reporting_per_region_day_k{k}", np.mean(nrep), "of 3")
+    norm = SURV / "grud_sweep_normalised" / "sensitivity.csv"
+    if norm.exists():
+        Z = pd.read_csv(norm)
+        for sig, tag in (("Combined", "combined"), ("Viral cases (pooled)", "viral")):
+            z = Z[(Z.parameter == "k") & (Z.value.astype(str) == "10") & (Z.signal == sig) & (Z.detector == "EWMA")].iloc[0]
+            add(f"normalised_viral_k10_false_alarms_{tag}", z.false_alarms_per_100_region_days,
+                "viral count per reporting site (--normalize-viral); the k=10 effect persists")
 
     out = pd.DataFrame(rows)
     out.to_csv(RES / "paper_numbers.csv", index=False)

@@ -35,11 +35,12 @@ SIGNALS = ["Sepsis-alert rate (pooled)", "Viral cases (pooled)", "Combined", "Si
 COLORS = dict(zip(SIGNALS, ["#1f77b4", "#2ca02c", "#d62728", "#7f7f7f"]))
 
 _PT = None
+_NORM = False
 
 
-def _init(pt):
-    global _PT
-    _PT = pt
+def _init(pt, normalize_viral=False):
+    global _PT, _NORM
+    _PT, _NORM = pt, normalize_viral
 
 
 def run_cell(cfg, replicates, control=False):
@@ -50,7 +51,8 @@ def run_cell(cfg, replicates, control=False):
     rows = {d: [] for d in DETECTORS}
     for s in range(replicates):
         reports, reg, region, window = run_replicate(
-            pt, sites, s, cfg["k"], cfg["epsilon"], cfg["intensity"], cfg["viral_multiplier"])
+            pt, sites, s, cfg["k"], cfg["epsilon"], cfg["intensity"], cfg["viral_multiplier"],
+            normalize_viral=_NORM)
         for d in DETECTORS:
             rows[d].append(evaluate(reg, reports, region, window, d, control=control)[0])
     return {d: summarize(rows[d]) for d in DETECTORS}
@@ -113,6 +115,7 @@ def main():
     ap.add_argument("--data", default="Dataset.csv")
     ap.add_argument("--out", default="outputs/surveillance")
     ap.add_argument("--replicates", type=int, default=30)
+    ap.add_argument("--normalize-viral", action="store_true", help="viral count per reporting site (see aggregate.py)")
     ap.add_argument("--risk-source", default="legacy",
                     help="legacy, or a project model scored leakage-safe (see run_surveillance --risk-source)")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
@@ -125,7 +128,7 @@ def main():
         from .risk_protocol import patient_risk_scores_protocol
         pt, metrics = patient_risk_scores_protocol(a.data, a.risk_source, cache_dir="outputs/final_run")
     print("Risk model (out-of-fold) patient AUROC:", round(metrics["patient_level_auroc"], 4))
-    with ProcessPoolExecutor(a.workers, initializer=_init, initargs=(pt,)) as ex:
+    with ProcessPoolExecutor(a.workers, initializer=_init, initargs=(pt, a.normalize_viral)) as ex:
         futs = [ex.submit(_run, t, a.replicates) for t in _tasks() + _check_tasks()]
         results = [f.result() for f in futs]
     n_main = len(_tasks())

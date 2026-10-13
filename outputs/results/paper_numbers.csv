@@ -48,3 +48,12 @@ fig2_septic_last_risk,0.0692533401178168,
 fig2_high_threshold,0.03211796656250954,
 fig2_hours_before_onset_first_at_or_above_high,20.0,first hour from which the septic patient's risk is at or above High (hours before labelled onset)
 fig2_nonseptic_max_risk,0.0295417977527878,
+patients_per_site_day,8.285714285714286,
+share_site_days_below_k3,0.010994321920443766,Poisson approximation
+region_days_with_no_report_k3,0.0,"post-baseline, 12 replicates, 3 sites per region"
+mean_sites_reporting_per_region_day_k3,2.908072916666667,of 3
+share_site_days_below_k10,0.6806013949635488,Poisson approximation
+region_days_with_no_report_k10,0.3213541666666667,"post-baseline, 12 replicates, 3 sites per region"
+mean_sites_reporting_per_region_day_k10,1.0145833333333332,of 3
+normalised_viral_k10_false_alarms_combined,2.8446662507797877,viral count per reporting site (--normalize-viral); the k=10 effect persists
+normalised_viral_k10_false_alarms_viral,3.980037429819089,viral count per reporting site (--normalize-viral); the k=10 effect persists

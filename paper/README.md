@@ -1,7 +1,9 @@
 # Paper 514: manuscript and where every number comes from
 
-`514_Manuscript_revised_clean.docx` is the manuscript with all tracked changes accepted (13 Oct 2026). It still
-contains the authors' review comments (11); delete them in the submission copy. Nothing in the text is typed from
+`514_Manuscript_revised_clean.docx` is the manuscript with all tracked changes accepted (13 Oct 2026); it still
+contains the authors' 11 review comments. `514_Manuscript_submission_copy.docx` is built from it by
+`scripts/make_submission_copy.py` (comments removed, unused images dropped, three wording fixes and a corrected
+explanation of the k = 10 effect) and is the file `scripts/verify_manuscript.py` checks (61 checks). Nothing in the text is typed from
 memory: each number below is produced by a script in this repository and stored in a file.
 
 Regenerate everything from a clean checkout (needs `Dataset.csv`, not tracked):
@@ -13,7 +15,11 @@ Regenerate everything from a clean checkout (needs `Dataset.csv`, not tracked):
         --viral-csv data/viral/fluview_hhs_weekly.csv --out outputs/surveillance/leakage_safe/grud_real_viral
     python -m surveillance.sweep --data Dataset.csv --risk-source grud --out outputs/surveillance/leakage_safe/grud_sweep
     python scripts/make_figures_2_3.py ; python scripts/make_figure4.py
+    python -m surveillance.sweep --data Dataset.csv --risk-source grud --normalize-viral \
+        --out outputs/surveillance/leakage_safe/grud_sweep_normalised   # control for the k = 10 explanation
     python scripts/paper_numbers.py                                    # paper_numbers.csv (everything else)
+    python scripts/make_submission_copy.py                             # clean docx -> submission copy (no comments)
+    python scripts/verify_manuscript.py                                # every table cell / quoted number vs the files
     python scripts/check_deployment.py                                 # bundle reproduces the evaluation
 
 ## Tables and figures
@@ -50,6 +56,7 @@ were removed. The figure files were renamed to the final numbering on 13 Oct 202
 | Sensitivity paragraph (ε, k, intensity, viral multiplier, sites, control 0.54, placebo detection 10-17%) | `outputs/surveillance/leakage_safe/grud_sweep/sensitivity.csv` |
 | Septic patient risk 0.028 -> 0.069, High threshold 0.032 crossed about 20 h before onset; non-septic maximum 0.030 | `figure2_trajectory.csv`, `paper_numbers.csv` (`fig2_*`) |
 | Top SHAP features (ICULOS 0.74, HospAdmTime 0.32, ...) | `figure3_shap_mean_abs.csv` |
+| k = 10: false alarms 0.61 -> 2.69; two thirds of site-days suppressed, a third of region-days without a report, one of three sites reporting; per-site normalisation leaves 2.84 | `sensitivity.csv`, `grud_sweep_normalised/sensitivity.csv`, `paper_numbers.csv` (`share_site_days_below_k10`, `region_days_with_no_report_k10`, `mean_sites_reporting_per_region_day_k10`, `normalised_*`) |
 | Viral series: CDC FluView ILINet via Delphi Epidata, accessed 9 Oct 2026, HHS regions 1/3/4/9 from epiweek 202436 | `data/viral/SOURCE.json` (local), `surveillance/README.md` |
 
 Statements about design (Digital Twin architecture, tiered alerts, deployment) are not results and are flagged in
