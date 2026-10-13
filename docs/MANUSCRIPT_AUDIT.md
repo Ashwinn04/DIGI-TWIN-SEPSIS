@@ -58,3 +58,59 @@ author order, no surveillance section); it is not a render of the tracked `.docx
 
 ## Not claimed anywhere (keep it that way)
 Lead time before onset, calibration quality beyond a 2-3% Brier skill, external validation, clinical benefit.
+
+---
+# Round 2: `514_Manuscript_revised_tracked-2.pdf` (insertions rendered), checked 2026-10-13
+
+## Numeric claims checked against the repository (all correct unless noted)
+- Abstract/Results: eleven models, AUROC 0.696-0.787; Table 2 = `final_results_summary.csv`; 2,092 test patients,
+  80,098 hours, 860 positive (1.1%); 2.2% of records / 8.8% of patients positive; 89.5% post-onset; 0.948.
+- H = 3/6/12 means: XGBoost 0.780/0.784/0.799 and GRU-D 0.793/0.787/0.793 exactly as in the text.
+- Shuffled labels 0.40-0.41, within-6-h-bin shuffle 0.69; AUPRC 4-6x chance (0.042-0.067 vs 0.0107); precision
+  at the F1 threshold 8.6-10.8%; Brier skill 2-3%.
+- Reproduction sentence: at H = 6 the Transformer, CNN-LSTM and MLP seed means differ between machines by less
+  than one seed SD (0.0046 vs 0.0055; 0.0012 vs 0.0105; 0.0003 vs 0.0241). (At H = 12 the MLP differs by 0.018, more than
+  its SD; the text does not claim otherwise.)
+- Surveillance setup: 13,920 patients, patient-level AUROC 0.743, weeks from epiweek 202436, accessed 9 Oct 2026,
+  onset days 63-81, 12 sites / 4 regions / 140 days / 21-day surge / 60%; Table 3 = current retrained-GRU-D run.
+- Sensitivity paragraph (all EWMA, combined signal): eps 0.1 -> 60% detected, 17.5 d; eps >= 0.5 -> 100%; delay 8 d
+  (eps 0.5) -> 3 d (none); k = 10 false alarms 0.61 -> 2.69; intensity 0.2 -> 9 d, 0.8 -> 4 d; viral alone 33% at
+  1.5-fold, 100% at 5-fold; viral with 1 site/region 67%, 5 sites 100%; control 0.54 per 100 region-days.
+- References [1]-[8], [11]-[30] have the right authors/venues/years/volumes as far as I can tell from memory;
+  not checked online. [9], [10] still need a check on their DOIs.
+
+## Must fix
+1. **Figures 5 and 6 (page 7) are still the placeholder images and captions.** Replace with
+   `outputs/figures/figure5_risk_trajectory.png` / `figure6_shap_xgboost.png` and the text in Round 1, item 1.
+   Figure numbers now jump 1 -> 5 (old 2-4 were removed): renumber 5-8 to 2-5 and fix the in-text references.
+2. **Real-time / SHAP / outcome claims remain**: abstract ("real-time visualization"), Introduction ("real-time
+   visualization ... improving clinical decision-making and patient outcomes [9], [11], [13]"), Digital Twin
+   Framework ("continuously ingests ... in real time ... generates SHAP-based explanations"), "End-To-End System
+   Architecture" and "Architectural components" (streaming collector, "SHAP values are computed for the current
+   prediction"), Table 1 "Present Work: Real-time EHR data". What exists: offline hourly scoring from a file, a
+   dashboard that shows reference-range deviations, and an offline TreeSHAP analysis of XGBoost.
+3. **Dataset section, imputation and mask paragraphs are inaccurate.** `Dataset.csv` was median-filled before we
+   received it (dataset-wide median per column, no carry-forward); our train-only imputer is a no-op and the observed
+   mask is all ones except window padding, so "missingness is visible to the model" and "GRU-D explicitly models
+   missingness" are not exercised here. Say so, with the measurement-indicator result (AUROC 0.58).
+4. **"formal differential-privacy protection" (Literature Review) needs the accounting.** Laplace noise with scale
+   1/eps is added to each of three released counts; one patient contributes to at most two of them per day
+   (admissions, alerts), so the per-patient budget is 2*eps (3*eps if viral positives were patient-derived), and this
+   assumes each patient appears on one day at one site, as in the simulation. State that, or write
+   "noise calibrated to eps per released count" and drop "formal".
+5. **"about 100" positive test patients (Limitations) is 155** (860 positive hours from 155 of 2,092 patients).
+6. **State that the sensitivity numbers are EWMA** (CUSUM differs slightly, e.g. control 0.77 false alarms), and
+   add the chance floor: in the no-outbreak control an alarm falls in the placebo window in 10% (EWMA) to 17%
+   (CUSUM) of replicates, so weak settings (viral 1.5-fold, eps 0.1) sit near chance detection.
+
+## Smaller points
+- "At 3 and 12 hours the same models lead": at 3 h CNN-LSTM is first (0.796), GRU-D second (0.793), XGBoost fourth.
+  Write "the same group of models leads".
+- "SHAP provides feature-level explanations" (Implementation): the values in Fig. 6 are XGBoost's built-in exact
+  TreeSHAP (`pred_contribs`), not the `shap` package. [4] (MIMIC-III) is cited for general ML capability while MIMIC
+  was not used; consider citing [5] there.
+- The single-hospital result depends on how thin each site is (with one site per region it detects 100% in 3 days,
+  as well as pooling). The Limitations already say each hospital has few patients; add that the 3-4 day gain is
+  specific to 12 sites sharing the pool.
+- "To our knowledge, no prior work pools alerts from bedside sepsis-risk models across hospitals ...": a novelty
+  claim that nobody here has searched for; verify or soften.
