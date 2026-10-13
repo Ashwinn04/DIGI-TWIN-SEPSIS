@@ -86,3 +86,23 @@ onset was not measured; the dataset's labelled onset is already ~6 h before clin
 
 Also added: committed patient split (`outputs/cache/patient_splits_seed42.json`), `requirements.lock.txt`,
 `scripts/test_setup.py`, README "Reproduce the paper results", stale results moved to `outputs/results/archive/`.
+
+## 8. Ashwin's response to section 7 (2026-10-13)
+- **Reproduction accepted.** Cross-machine comparison (`reproduction/anjith_final_results.csv` vs `final_results.csv`,
+  108 rows matched): 8 of 12 models are bit-identical (time-only, LR, DT, KNN, RF, XGBoost, HistGB and **GRU-D**,
+  which confirms the batch-independence fix removed its nondeterminism); LSTM within 2e-4; CNN-LSTM per-seed
+  up to 0.004; Transformer per-seed up to 0.047 (seed ensemble 0.018); ANN per-seed up to 0.028. Ranking of the
+  top models is unchanged. For the chapter: report **mean +/- std over seeds** (`final_results_summary.csv`) and say
+  Transformer/CNN-LSTM/ANN training is not bit-reproducible across machines.
+- **`scripts/check_deployment.py` now runs from a fresh clone** (needs `Dataset.csv`, no cache, no training): it
+  recomputes the evaluation path from the bundle's own checkpoints and compares the full-test AUROC/AUPRC with the
+  values recorded in `calibration.json`. All 7 bundle models match to 4 decimals.
+- **Extra finding supporting your "no missing values" check:** the 44 model columns have 0 missing cells and the
+  slow labs are carried forward (share of hours equal to the previous hour: lactate 92.6%, creatinine 85.8%,
+  platelets 85.0%, glucose 76.3%; vitals: HR 11.6%, Temp 48.7%). So `Dataset.csv` was forward-filled (or similar)
+  before it reached us, the observed-mask is all ones apart from window padding, and **GRU-D's missing-data
+  handling cannot be demonstrated on this file**. The chapter should not claim a missingness advantage. Whoever
+  prepared the data (Person A) should state the imputation method; if it used cross-patient statistics computed
+  before the split, that is a (small) leakage path we cannot rule out from here.
+- **Still open:** chapter review against the tables (waiting for the draft); suppression normalisation and a
+  geographic-localisation metric in `surveillance/`.

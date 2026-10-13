@@ -5,7 +5,12 @@
 
 For random test-set hours it rebuilds the raw patient history (last 24 rows), runs it through
 explainability_utils.deploy.ProtocolBundle (the path the dashboard/CLI use) and compares the raw model
-probabilities with the ones cached by scripts/final_evaluation.py. Exits non-zero on a mismatch.
+probabilities with the evaluation path's. Exits non-zero on a mismatch.
+
+The evaluation-path probabilities come from the cache written by scripts/final_evaluation.py
+(outputs/final_run/preds) when present. From a fresh clone there is no cache, so they are recomputed from the
+bundle's own checkpoints and preprocessor, and the full-test-set AUROC/AUPRC are also compared with the
+metrics recorded in calibration.json. This needs Dataset.csv but no training and no cache.
 """
 import argparse, json, os, sys
 from pathlib import Path
@@ -17,7 +22,8 @@ import numpy as np
 import pandas as pd
 
 from explainability_utils.deploy import ProtocolBundle
-from explainability_utils.protocol import WINDOW, build_data, make_samples
+from sklearn.metrics import average_precision_score, roc_auc_score
+from explainability_utils.protocol import WINDOW, build_data, make_samples, windows
 
 
 def main():
@@ -35,9 +41,35 @@ def main():
     pick = np.random.default_rng(0).choice(len(r_te), a.n, replace=False)
     raw_df = d["df"]
     seeds = {n: spec["seeds"] for n, spec in b.cal["models"].items() if spec["kind"] == "dl"}
-    cached = {n: np.mean([np.load(Path(a.workdir) / "preds" / f"{n}_H{H}_s{s}.npz")["test"] for s in ss], 0) for n, ss in seeds.items()}
-    cached_sk = {n: np.load(Path(a.workdir) / "preds" / f"{n}_H{H}_s{spec['file'].split('_s')[-1].split('.')[0]}.npz")["test"]
-                 for n, spec in b.cal["models"].items() if spec["kind"] == "sklearn"}
+    cache_dir = Path(a.workdir) / "preds"
+    use_cache = all((cache_dir / f"{n}_H{H}_s{s}.npz").exists() for n, ss in seeds.items() for s in ss)
+    Xs = b.scaler.transform(b.imputer.transform(d["X"])).astype(np.float32)     # the bundle's own preprocessing
+    Mk = ~np.isnan(d["X"])
+    cached, cached_sk, full = {}, {}, True
+    if use_cache:
+        print("evaluation path: cached predictions from", cache_dir)
+        cached = {n: np.mean([np.load(cache_dir / f"{n}_H{H}_s{s}.npz")["test"] for s in ss], 0) for n, ss in seeds.items()}
+        cached_sk = {n: np.load(cache_dir / f"{n}_H{H}_s{spec['file'].split('_s')[-1].split('.')[0]}.npz")["test"]
+                     for n, spec in b.cal["models"].items() if spec["kind"] == "sklearn" and n in b.sk}
+    else:
+        print("evaluation path: no cache found; recomputing from the bundle's checkpoints (all test hours)")
+        import torch
+        with torch.no_grad():
+            for n, nets in b.nets.items():
+                out = []
+                for i in range(0, len(r_te), 4096):
+                    f, m, dt = windows(Xs, Mk, d["start"], r_te[i:i + 4096])
+                    out.append(np.mean([torch.sigmoid(net(f, m, dt)).flatten().numpy() for net in nets], 0))
+                cached[n] = np.concatenate(out)
+        cached_sk = {n: b.sk[n].predict_proba(Xs[r_te])[:, 1] for n in b.sk}
+        # whole-test-set metrics must match what calibration.json recorded at export time
+        print("full test set, recomputed vs recorded in calibration.json:")
+        for n, p in {**cached, **cached_sk}.items():
+            spec = b.cal["models"][n]
+            au, ap = roc_auc_score(y_te, p), average_precision_score(y_te, p)
+            ok = abs(au - spec["test"]["auroc"]) < a.tol and abs(ap - spec["test"]["auprc"]) < a.tol
+            print(f"  {n:22s} AUROC {au:.4f} (recorded {spec['test']['auroc']:.4f})  AUPRC {ap:.4f} (recorded {spec['test']['auprc']:.4f})  {'OK' if ok else 'MISMATCH'}")
+            full &= ok
     worst = {}
     for i in pick:
         r = r_te[i]
@@ -53,7 +85,7 @@ def main():
         ok = w <= a.tol
         bad |= not ok
         print(f"  {n:22s} {w:.2e}  {'OK' if ok else 'MISMATCH'}")
-    sys.exit(1 if bad else 0)
+    sys.exit(1 if (bad or not full) else 0)
 
 
 if __name__ == "__main__":
