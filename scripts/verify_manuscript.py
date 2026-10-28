@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Step 8 cross-check: every table cell and quoted number in the manuscript against the result files.
 
-    python scripts/verify_manuscript.py [paper/514_Manuscript_final.docx]
+    python scripts/verify_manuscript.py [paper/514_Manuscript_final_LNCS.docx]
 
 Exit status is non-zero if any check fails. Expected values are computed from the CSV/JSON files named in
 paper/README.md, formatted the way the text prints them, and looked up in the manuscript.
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "outputs" / "results"
 SURV = ROOT / "outputs" / "surveillance" / "leakage_safe"
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "paper" / "514_Manuscript_final.docx"
+path = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "paper" / "514_Manuscript_final_LNCS.docx"
 
 root = ET.fromstring(zipfile.ZipFile(path).read("word/document.xml"))
 paras = ["".join((e.text or "") for e in p.iter() if e.tag == W + "t") for p in root.iter(W + "p")]
@@ -63,6 +63,7 @@ for row in t2[1:]:
 # ---------------------------------------------------------------- Table 3
 J = json.load(open(SURV / "grud_real_viral" / "surveillance_results.json"))
 sig = {"Pooled high-risk alerts": "Sepsis-alert rate (pooled)", "Pooled viral cases": "Viral cases (pooled)",
+       "Pooled ILI counts": "Viral cases (pooled)",
        "Combined": "Combined", "Single hospital": "Single hospital"}
 fmt = lambda m: f"{m['detection_rate']:.2f} / {m['median_delay_days']:g} / {m['false_alarms_per_100_region_days']:.2f}"
 t3 = next(t for t in tables if t and t[0] == ["Signal", "EWMA", "CUSUM"])
@@ -137,19 +138,53 @@ ctl = lambda det: Z[(Z.parameter == "control") & (Z.signal == "Combined") & (Z.d
 has("no-outbreak control", f"{ctl('EWMA').false_alarms_per_100_region_days:.2f} false alarms per 100 region-days",
     f"{ctl('CUSUM').false_alarms_per_100_region_days:.2f} with CUSUM", f"{ctl('EWMA').detection_rate*100:.0f}% (EWMA) to {ctl('CUSUM').detection_rate*100:.0f}% (CUSUM)")
 
-# ---------------------------------------------------------------- figures 2 and 3
-F2 = pd.read_csv(RES / "figure2_trajectory.csv")
-sep = F2[F2.group == "septic"].sort_values("hour")
-thr = json.load(open(ROOT / "outputs" / "deployed" / "protocol_H6" / "calibration.json"))["ensemble_dl"]["threshold_high"]
-has("Figure 2 numbers", f"{sep.risk.iloc[0]:.3f} to {sep.risk.iloc[-1]:.3f}", f"({thr:.3f})",
-    f"peaked at {F2[F2.group=='non-septic'].risk.max():.3f}")
+# ---------------------------------------------------------------- figures 2 and 3 (GradientSHAP of GRU-D, scripts/shap_grud.py)
+SH = ROOT / "outputs" / "shap"
+run = json.load(open(SH / "shap_run.json"))
+G = pd.read_csv(SH / "grud_global_importance.csv")
+gi = G.set_index("feature").mean_abs_shap
+has("Figure 2 setup", f"{run['n_windows']:,} test windows", f"({run['n_positive']} positive, {run['n_windows'] - run['n_positive']} negative)",
+    f"against {run['n_background']} random training windows", f"with {run['n_samples']} samples per window",
+    f"(correlation {run['completeness']['corr']:.3f})")
+has("Figure 2 GRU-D SHAP values", f"mean absolute SHAP value of {gi['ICULOS']:.2f}", f"respiratory rate ({gi['Resp']:.2f})",
+    f"heart rate ({gi['HR']:.2f})", f"pressure ({gi['MAP_rolling_mean_6hr']:.2f})", f"oxygen saturation ({gi['O2Sat']:.2f})",
+    f"temperature ({gi['Temp']:.2f})", f"Lactate ranks {list(G.feature).index('Lactate') + 1}th of {len(G)} features")
+check("Figure 2: ICULOS first, about six times the next feature",
+      G.feature.iloc[0] == "ICULOS" and round(gi.iloc[0] / gi.iloc[1]) == 6 and "about six times" in text)
+adm = [gi["Unit1"], gi["Unit2"], gi["Gender"]]
+has("Figure 2: gender and ICU-unit range", f"({min(adm):.2f}–{max(adm):.2f})")
+check("Figure 2: attributions complete (corr >= 0.99) and inputs reproduce the evaluation (< 1e-3)",
+      run["completeness"]["corr"] >= 0.99 and run["reproduction_max_diff"] is not None and run["reproduction_max_diff"] < 1e-3)
+T = pd.read_csv(SH / f"grud_patient_{run['trajectory']['patient']}_trajectory.csv")
+th = run["thresholds"]
+fm = T.hour_rel_onset[T.risk_calibrated >= th["medium"]].iloc[0]
+fh = T.hour_rel_onset[T.risk_calibrated >= th["high"]].iloc[0]
+hf = T.hour_rel_onset[T.risk_calibrated < th["high"]].iloc[-1] + 1
+has("Figure 3 trajectory", f"{-fm} hours before the labelled onset", f"{-fh} hours before onset; it then falls back",
+    f"stays above it from {-hf} hours", run["trajectory"]["rule"].split("(of ")[1].split(" septic")[0] + " septic test patients")
 F3 = pd.read_csv(RES / "figure3_shap_mean_abs.csv").sort_values("mean_abs_shap", ascending=False)
 top = F3.set_index("feature").mean_abs_shap
-has("Figure 3 SHAP values", f"mean |SHAP| {top['ICULOS']:.2f}", f"({top['HospAdmTime']:.2f})", f"({top['Unit1']:.2f})",
-    f"age ({top['Age']:.2f})", f"({top['MAP_rolling_mean_6hr']:.2f})", f"({top['HR']:.2f})")
-check("Figure 3 top features as listed", list(F3.feature.head(7)) == ["ICULOS", "HospAdmTime", "Unit1", "Age", "MAP_rolling_mean_6hr", "HR", "Resp"],
-      str(list(F3.feature.head(7))))
-check("lactate and WBC outside the SHAP top ten", not {"Lactate", "WBC"} & set(F3.feature.head(10)))
+has("XGBoost TreeSHAP cross-check", f"(ICULOS, mean |SHAP| {top['ICULOS']:.2f})", f"hospital admission ({top['HospAdmTime']:.2f})",
+    f"ICU unit ({top['Unit1']:.2f})", f"age ({top['Age']:.2f})")
+check("XGBoost top four as listed", list(F3.feature.head(4)) == ["ICULOS", "HospAdmTime", "Unit1", "Age"], str(list(F3.feature.head(4))))
+
+# ---------------------------------------------------------------- Fig. 6, reproduction number (surveillance/rt.py)
+RT = json.load(open(ROOT / "outputs" / "surveillance" / "rt" / "rt_summary.json"))["regions"]
+lo = min(v["R_baseline_range"][0] for v in RT.values()); hi = max(v["R_baseline_range"][1] for v in RT.values())
+pk = sorted(v["R_peak"] for v in RT.values())
+has("R_t ranges", f"between {lo:.2f} and {hi:.2f} in all regions", f"peaked at {pk[0]:.2f}–{pk[-1]:.2f}",
+    "weeks starting 22 and 29 December 2024")
+has("R_t significance days", f"from day {RT['South']['R_low_above_1_day']}, {RT['South']['R_low_above_1_lead_days']} and "
+    f"{RT['West']['R_low_above_1_lead_days']} days before", f"only on day {RT['North']['R_low_above_1_day']}, "
+    f"{-RT['North']['R_low_above_1_lead_days']} days after the rise")
+check("R_t: South and West significant on the same day; East never",
+      RT["South"]["R_low_above_1_day"] == RT["West"]["R_low_above_1_day"] and RT["East"]["R_low_above_1_day"] is None)
+has("R_t references and serial interval", "mean 3.6 days and standard deviation 1.6 days [32]", "Wallinga, J., Lipsitch, M.",
+    "Cowling, B.J.")
+check("ILI wording: no 'viral (test) positives' or 'viral cases' left",
+      not re.search(r"viral (test )?positives|viral cases", text))
+has("scope and pathogen statements", "core contribution remains individual-level",
+    "does not identify a specific pathogen", "rather than a transmission model")
 
 # ---------------------------------------------------------------- reproduction sentence
 ok = all(P[f"repro_{m}_h6_abs_diff_of_seed_means"] < P[f"repro_{m}_h6_seed_sd_ours"] for m in ("transformer", "cnn_lstm", "ann"))
@@ -163,7 +198,8 @@ for pat, why in [(r"0\.9[2-6]\d?\b", "old 0.92-0.96 results"), (r"placeholder", 
                  (r"formal\s+differential-privacy", "'formal DP' claim"), (r"explains risk in real time", "real-time explanation claim"),
                  (r"Real-time\s+EHR", "real-time EHR data"), (r"Heart rate, lactate, MAP trends", "fake SHAP caption")]:
     check(f"absent: {why}", not re.search(pat, scan), "")
-fig_caps = re.findall(r"FIGURE\s*(\d+)\.", " ".join(paras))
+fig_caps = [m.group(1) for p in paras for m in [re.match(r"\s*(?:FIGURE\s*|Fig\.\s+)(\d+)\.\s", p)] if m]
+n_drawings = len(list(root.iter(W + "drawing")))
 # ---- final-round edits and housekeeping
 has("abstract: hourly monitoring and 6-hour estimate", "Digital Twin architecture for hourly patient monitoring",
     "estimate the risk that sepsis onset occurs within the next 6 hours")
@@ -173,7 +209,7 @@ has("design-intent wording", "is intended to support clinical decision-making", 
     "Hourly risk estimation, clinician-facing dashboard")
 check("reference [4] cited exactly once, in the data-context sentence",
       len(re.findall(r"\[4\]", text)) == 1 and "such as MIMIC-III [4], were not used" in text)
-check("data and code availability section present", "DATA AND CODE AVAILABILITY" in text and "paper514-final" in text)
+check("data and code availability section present", "data and code availability" in text.lower() and "release tag paper514-final-lncs" in text)
 check("availability: repository URL and data licence stated",
       "https://github.com/Ashwinn04/DIGI-TWIN-SEPSIS" in text and "Creative Commons Attribution 4.0" in text
       and "patient numbers 1 to 20,643" in text and "[[PLACEHOLDER" not in text)
@@ -183,7 +219,8 @@ check("absent: real-time / sums-over-sites wording fixed",
       "feature computation in real time" not in text and "help clinicians see" not in text
       and "from a clinical utility perspective" not in text)
 check("absent: untested cause of the k=10 effect", "varies with the number of sites that pass suppression" not in text)
-check("figure captions numbered 1..5 in order", fig_caps == ["1", "2", "3", "4", "5"], str(fig_caps))
+check("figure captions numbered 1..N in order, one per figure",
+      fig_caps == [str(i) for i in range(1, n_drawings + 1)], f"{fig_caps} for {n_drawings} figures")
 
 open_ph = re.findall(r"\[\[PLACEHOLDER[^\]]*\]\]", text)
 bad = [r for r in results if not r[0]]

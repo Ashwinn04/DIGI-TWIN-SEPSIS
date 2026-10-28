@@ -12,6 +12,16 @@ history and in the release tag, e.g.
 The two placeholders in the Data and Code Availability section are filled by `make_submission_copy.py` (repository
 link; data provenance and licence, evidence below).
 
+## LNCS submission copy (`514_Manuscript_final_LNCS.docx`)
+
+Built from `514_Manuscript_final.docx` by `python3 scripts/make_lncs_copy.py` (needs lxml) and checked by
+`scripts/verify_manuscript.py`, whose default target it now is (81 checks). Changes, each asserted to match once:
+Springer LNCS layout; availability section names the release tag `paper514-final-lncs`; Figs. 2-3 are GradientSHAP of the leakage-safe GRU-D (`scripts/shap_grud.py`,
+`outputs/shap/`), with the XGBoost TreeSHAP values above (`outputs/results/figure3_shap_mean_abs.csv`) kept as a
+cross-check sentence; new Sect. 12.6 and Fig. 6, a regional reproduction number from ILINet (`surveillance/rt.py`,
+`outputs/surveillance/rt/`, refs [31], [32]); "viral (test) positives" replaced by ILI visits in the text, Table 3
+and Fig. 4 (`scripts/make_figure4.py`); scope, pathogen and transmission sentences; conclusion; refs [8], [15] cited.
+
 ## Data provenance (checked 13 Oct 2026 against physionet.org)
 
 - **Source:** `Dataset.csv` is derived from the public PhysioNet/Computing in Cardiology Challenge 2019 training data.
