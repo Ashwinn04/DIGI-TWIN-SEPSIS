@@ -1,0 +1,65 @@
+{
+  "model": "grud",
+  "bundle": "outputs/deployed/protocol_H6",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "horizon": 6,
+  "method": "captum GradientShap on each seed's logit, inputs (values, mask), averaged over seeds",
+  "n_windows": 1000,
+  "n_positive": 500,
+  "n_background": 200,
+  "n_samples": 200,
+  "completeness": {
+    "corr": 0.9967702496039843,
+    "mean_abs_gap": 0.1467115879058838,
+    "mean_abs_target": 1.584510087966919
+  },
+  "per_draw_mean_abs_delta": 1.7181534295280774,
+  "reproduction_max_diff": 4.172325134277344e-07,
+  "reproduction_cache": "outputs/final_run/anjith_rerun/preds",
+  "note": "Dataset.csv has no NaN; the mask only marks zero-padded hours before the stay starts",
+  "trajectory": {
+    "patient": 8978,
+    "rule": "median (of 98 septic test patients with >= 24 pre-onset hours) of the highest calibrated risk in the 6 h before onset",
+    "hours": 36,
+    "first_high_hour_rel_onset": -19,
+    "per_draw_mean_abs_delta": 1.3305315574010212,
+    "heatmap_features": [
+      "HR",
+      "Platelets",
+      "Resp",
+      "Gender",
+      "Unit1",
+      "Hct"
+    ],
+    "iculos_shap_first_last": [
+      0.3989446759223938,
+      4.155576705932617
+    ]
+  },
+  "thresholds": {
+    "medium": 0.013837291859090328,
+    "high": 0.037789732217788696
+  },
+  "top_global": [
+    "ICULOS",
+    "Resp",
+    "Gender",
+    "HR",
+    "MAP_rolling_mean_6hr",
+    "Unit2",
+    "O2Sat",
+    "Unit1",
+    "Temp",
+    "FiO2",
+    "Calcium",
+    "pH",
+    "BUN",
+    "Age",
+    "SBP"
+  ],
+  "seconds": 235
+}

@@ -23,6 +23,16 @@ Needs: pandas, numpy, scikit-learn, matplotlib (already in requirements.txt).
 6. `sweep.py`    sensitivity analysis over epsilon, k, outbreak intensity, viral multiplier, sites per region,
    alert budget, plus a no-outbreak control (false alarms per 100 region-days)
 
+## Reproduction number (outputs/surveillance/rt/)
+    python -m surveillance.rt --viral-csv data/viral/fluview_hhs_weekly.csv --out outputs/surveillance/rt
+    python -m surveillance.rt --selfcheck
+`rt.py` estimates a weekly R_t per region from the real ILINet series: quasi-Poisson growth rate of ILI visits
+(offset: all visits) over a trailing 4-week window, converted with R = (1 + r s)^k for a gamma generation interval
+(influenza serial interval mean 3.6 d, sd 1.6 d; Cowling et al. 2009; Wallinga & Lipsitch 2007). Baseline R_t
+0.97-1.07, peak 1.08-1.15 (weeks of 22/29 Dec 2024, partly a holiday care-seeking effect). Lower 95% bound above 1
+for two weeks after the baseline: South day 62 and West day 62 (6 and 1 days before the ILI rise), North day 97
+(16 days after), East never. ILI mixes pathogens, so this is growth of influenza-like illness, not of one virus.
+
 ## What is real vs simulated
 - **Real:** the ICU data and its out-of-fold risk scores; with `--viral-csv`, also the viral series.
 - **SIMULATED:** hospital/region assignment, admission dates and the sepsis-alert surge (the outbreak

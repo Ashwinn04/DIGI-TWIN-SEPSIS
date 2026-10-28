@@ -42,7 +42,7 @@ for y, name in rows:
     text(HX + 1.5, y + HH - 1.8, name, size=T, weight="bold", ha="left")
     box(HX + 1.5, y + 1.0, 16, 7.6)
     text(HX + 9.5, y + 6.7, "Digital Twin", size=T, weight="bold")
-    text(HX + 9.5, y + 3.4, "hourly risk scores,\nviral test results", color=QUIET)
+    text(HX + 9.5, y + 3.4, "hourly risk scores,\nILI visit counts", color=QUIET)
     box(HX + 21.5, y + 1.0, 17, 7.6, fill=ACCENT_FILL, edge=ACCENT, lw=1.2)
     text(HX + 30, y + 6.7, "Privacy filter", size=T, weight="bold")
     text(HX + 30, y + 3.4, "suppress counts < k,\nadd Laplace noise (\u03b5)")
@@ -70,7 +70,7 @@ text(LX + LW / 2, AY + 12.6, "Alerts", size=T, weight="bold")
 text(LX + LW / 2, AY + 6.0, "region and day\nof each alarm;\nheatmap", color=QUIET)
 arrow((DX + DW, AY + AH / 2), (LX, AY + AH / 2))
 
-text(73.5, 7.5, "Released per site per day: admissions, high-risk alerts, viral positives.\n"
+text(73.5, 7.5, "Released per site per day: admissions, high-risk alerts, ILI counts.\n"
                 "No patient record leaves a hospital.", color=QUIET)
 
 out = sys.argv[1] if len(sys.argv) > 1 else str(Path(__file__).resolve().parent.parent / "outputs" / "figures" / "figure4_dataflow.png")
